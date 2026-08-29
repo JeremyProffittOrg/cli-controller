@@ -51,11 +51,14 @@ func Truncate(s string, n int) string {
 }
 
 func FormatRow(selected bool, brand, title string) string {
-	b := strings.ToUpper(brand)
-	if b == "" {
-		b = "UNKNOWN"
+	title = Truncate(title, 64)
+	b := strings.ToUpper(strings.TrimSpace(brand))
+	var line string
+	if b == "" || b == "UNKNOWN" {
+		line = title
+	} else {
+		line = b + "  " + title
 	}
-	line := b + "  " + Truncate(title, 64)
 	if selected {
 		return "> " + line
 	}

@@ -5,3 +5,4 @@ cli-controller.exe
 .vscode/
 .idea/
 *.log
+artifacts/

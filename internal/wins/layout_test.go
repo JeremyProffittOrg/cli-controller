@@ -21,6 +21,26 @@ func TestTileRectsFillPrimaryWorkArea(t *testing.T) {
 	}
 }
 
+func TestPerScreenRectsStayOnOwnScreen(t *testing.T) {
+	primary := image.Rect(0, 0, 1920, 1032)
+	secondary := image.Rect(-1920, -15, 0, 1017)
+	works := []image.Rectangle{primary, primary, secondary}
+	got := PerScreenRects(works, TileRects)
+	if len(got) != 3 {
+		t.Fatal(len(got))
+	}
+	if !RectsInside(primary, []image.Rectangle{got[0], got[1]}) {
+		t.Fatalf("primary %v", got)
+	}
+	if !RectsInside(secondary, []image.Rectangle{got[2]}) {
+		t.Fatalf("secondary %v", got[2])
+	}
+	stacked := PerScreenRects(works, StackRects)
+	if !RectsInside(primary, []image.Rectangle{stacked[0], stacked[1]}) || !RectsInside(secondary, []image.Rectangle{stacked[2]}) {
+		t.Fatalf("stack %v", stacked)
+	}
+}
+
 func TestStackRectsCascade(t *testing.T) {
 	work := image.Rect(0, 0, 1920, 1032)
 	rects := StackRects(work, 4)

@@ -19,6 +19,7 @@ type Window struct {
 	Title     string
 	Brand     Brand
 	Minimized bool
+	Work      image.Rectangle
 }
 
 var (
@@ -51,6 +52,7 @@ func enumProc(hwnd, lparam uintptr) uintptr {
 	if brand == BrandNone {
 		return 1
 	}
+	rc := win32.WorkRECTFromWindow(h)
 	enumBuf = append(enumBuf, Window{
 		HWND:      h,
 		PID:       pid,
@@ -58,6 +60,7 @@ func enumProc(hwnd, lparam uintptr) uintptr {
 		Title:     title,
 		Brand:     brand,
 		Minimized: win32.IsIconic(h),
+		Work:      image.Rect(int(rc.Left), int(rc.Top), int(rc.Right), int(rc.Bottom)),
 	})
 	return 1
 }
@@ -139,16 +142,29 @@ func ApplyRects(windows []Window, rects []image.Rectangle) {
 	}
 }
 
+func windowWorks(list []Window) []image.Rectangle {
+	out := make([]image.Rectangle, len(list))
+	fallback := PrimaryWorkArea()
+	for i, w := range list {
+		if w.Work.Dx() > 0 && w.Work.Dy() > 0 {
+			out[i] = w.Work
+			continue
+		}
+		out[i] = fallback
+	}
+	return out
+}
+
 func Tile(list []Window) {
 	if len(list) == 0 {
 		return
 	}
-	ApplyRects(list, TileRects(PrimaryWorkArea(), len(list)))
+	ApplyRects(list, PerScreenRects(windowWorks(list), TileRects))
 }
 
 func Stack(list []Window) {
 	if len(list) == 0 {
 		return
 	}
-	ApplyRects(list, StackRects(PrimaryWorkArea(), len(list)))
+	ApplyRects(list, PerScreenRects(windowWorks(list), StackRects))
 }

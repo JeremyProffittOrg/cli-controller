@@ -127,6 +127,8 @@ func (o *Overlay) Hide() {
 
 func (o *Overlay) Visible() bool { return o.shown }
 
+func (o *Overlay) Hwnd() windows.Handle { return o.hwnd }
+
 func (o *Overlay) Sel() int { return o.sel }
 
 func (o *Overlay) Items() []Item { return o.items }

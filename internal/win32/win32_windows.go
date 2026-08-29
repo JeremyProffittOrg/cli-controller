@@ -102,7 +102,8 @@ const (
 
 	CW_USEDEFAULT = ^int32(0x7fffffff) + 1 // -2147483648 as int32 via bit
 
-	MONITOR_DEFAULTTOPRIMARY = 1
+	MONITOR_DEFAULTTOPRIMARY  = 1
+	MONITOR_DEFAULTTONEAREST = 2
 	MONITORINFOF_PRIMARY     = 1
 
 	SM_CXSCREEN = 0
@@ -260,6 +261,7 @@ var (
 	procUpdateWindow         = modUser32.NewProc("UpdateWindow")
 	procInvalidateRect       = modUser32.NewProc("InvalidateRect")
 	procGetMessageW          = modUser32.NewProc("GetMessageW")
+	procPeekMessageW         = modUser32.NewProc("PeekMessageW")
 	procTranslateMessage     = modUser32.NewProc("TranslateMessage")
 	procDispatchMessageW     = modUser32.NewProc("DispatchMessageW")
 	procPostMessageW         = modUser32.NewProc("PostMessageW")
@@ -289,6 +291,7 @@ var (
 	procEnumDisplayMonitors  = modUser32.NewProc("EnumDisplayMonitors")
 	procGetMonitorInfoW      = modUser32.NewProc("GetMonitorInfoW")
 	procMonitorFromPoint     = modUser32.NewProc("MonitorFromPoint")
+	procMonitorFromWindow    = modUser32.NewProc("MonitorFromWindow")
 	procGetCursorPos         = modUser32.NewProc("GetCursorPos")
 	procSetForeground        = modUser32.NewProc("SetForegroundWindow")
 	procCreatePopupMenu      = modUser32.NewProc("CreatePopupMenu")
@@ -330,6 +333,7 @@ var (
 
 	procGetModuleHandleW     = modKernel32.NewProc("GetModuleHandleW")
 	procGetCurrentThreadId   = modKernel32.NewProc("GetCurrentThreadId")
+	procFreeConsole          = modKernel32.NewProc("FreeConsole")
 )
 
 func LOWORD(v uintptr) uint16 { return uint16(v & 0xFFFF) }
@@ -426,6 +430,11 @@ func Send(h windows.Handle, msg uint32, wParam, lParam uintptr) uintptr {
 func GetMessage(m *MSG) int {
 	r, _, _ := procGetMessageW.Call(uintptr(unsafe.Pointer(m)), 0, 0, 0)
 	return int(int32(r))
+}
+
+func PeekMessage(m *MSG) bool {
+	r, _, _ := procPeekMessageW.Call(uintptr(unsafe.Pointer(m)), 0, 0, 0, 1) // PM_REMOVE
+	return r != 0
 }
 
 func Translate(m *MSG) { procTranslateMessage.Call(uintptr(unsafe.Pointer(m))) }
@@ -568,6 +577,24 @@ func GetWindowThreadProcessId(h windows.Handle) (tid uint32, pid uint32) {
 func GetCurrentThreadId() uint32 {
 	r, _, _ := procGetCurrentThreadId.Call()
 	return uint32(r)
+}
+
+func FreeConsole() {
+	procFreeConsole.Call()
+}
+
+func WorkRECTFromWindow(h windows.Handle) RECT {
+	mon, _, _ := procMonitorFromWindow.Call(uintptr(h), MONITOR_DEFAULTTONEAREST)
+	if mon == 0 {
+		return PrimaryWorkRECT()
+	}
+	var mi MONITORINFO
+	mi.Size = uint32(unsafe.Sizeof(mi))
+	procGetMonitorInfoW.Call(mon, uintptr(unsafe.Pointer(&mi)))
+	if mi.Work.Right <= mi.Work.Left || mi.Work.Bottom <= mi.Work.Top {
+		return PrimaryWorkRECT()
+	}
+	return mi.Work
 }
 
 func SetForegroundWindow(h windows.Handle) bool {

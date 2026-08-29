@@ -44,6 +44,30 @@ func TestLiveTileRectsInsideWork(t *testing.T) {
 	_ = want
 }
 
+func TestLivePerScreenLayoutStaysOnWindowMonitor(t *testing.T) {
+	list := Enumerate(config.Default())
+	if len(list) == 0 {
+		t.Skip("no CLI windows")
+	}
+	works := make([]image.Rectangle, len(list))
+	for i, w := range list {
+		if w.Work.Dx() <= 0 || w.Work.Dy() <= 0 {
+			t.Fatalf("empty work %+v", w)
+		}
+		works[i] = w.Work
+	}
+	tiled := PerScreenRects(works, TileRects)
+	stacked := PerScreenRects(works, StackRects)
+	for i, w := range list {
+		if !RectsInside(w.Work, []image.Rectangle{tiled[i]}) {
+			t.Fatalf("tile %d %v not in %v", i, tiled[i], w.Work)
+		}
+		if !RectsInside(w.Work, []image.Rectangle{stacked[i]}) {
+			t.Fatalf("stack %d %v not in %v", i, stacked[i], w.Work)
+		}
+	}
+}
+
 func TestLiveFocus(t *testing.T) {
 	list := Enumerate(config.Default())
 	if len(list) == 0 {

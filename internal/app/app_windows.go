@@ -73,6 +73,7 @@ func Run() error {
 	}
 	a := &App{cfg: cfg, log: logger, mutex: mh}
 	inst = a
+	win32.FreeConsole()
 	if err := win32.RegisterClass("CLIDialHost", hostCB, 0); err != nil {
 		return err
 	}
@@ -318,6 +319,9 @@ func (a *App) sendState() {
 	brand, title := "", ""
 	if n > 0 && sel >= 0 && sel < n {
 		brand = string(a.list[sel].Brand)
+		if brand == string(wins.BrandUnknown) {
+			brand = ""
+		}
 		title = a.list[sel].Title
 	}
 	b, err := protocol.State(a.connected, n, sel, brand, title)

@@ -35,8 +35,12 @@ func TestFormatRowTruncateAndSelect(t *testing.T) {
 	if strings.Count(s, "a") != 64 {
 		t.Fatalf("trunc %q", s)
 	}
-	u := FormatRow(false, "", "Current plan")
-	if !strings.HasPrefix(u, "  UNKNOWN") {
+	u := FormatRow(false, "unknown", "Current plan")
+	if u != "  Current plan" {
 		t.Fatalf("%q", u)
+	}
+	empty := FormatRow(true, "", "Ultracode plan")
+	if empty != "> Ultracode plan" {
+		t.Fatalf("%q", empty)
 	}
 }

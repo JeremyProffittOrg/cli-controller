@@ -17,7 +17,7 @@ jobs:
         env:
           CGO_ENABLED: "0"
       - name: Build
-        run: go build -o cli-controller.exe ./cmd/cli-controller
+        run: go build -ldflags="-H windowsgui" -o cli-controller.exe ./cmd/cli-controller
         env:
           CGO_ENABLED: "0"
       - uses: actions/upload-artifact@v4

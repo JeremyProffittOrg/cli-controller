@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $Src = Join-Path $Root "cli-controller.exe"
 if (-not (Test-Path $Src)) {
-    throw "missing $Src - build with go build -o cli-controller.exe ./cmd/cli-controller"
+    throw "missing $Src - build with go build -ldflags=-H windowsgui -o cli-controller.exe ./cmd/cli-controller"
 }
 Get-Process -Name "cli-controller" -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Milliseconds 400
