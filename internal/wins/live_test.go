@@ -62,8 +62,8 @@ func TestLivePerScreenLayoutStaysOnWindowMonitor(t *testing.T) {
 		if !RectsInside(w.Work, []image.Rectangle{tiled[i]}) {
 			t.Fatalf("tile %d %v not in %v", i, tiled[i], w.Work)
 		}
-		if !RectsInside(w.Work, []image.Rectangle{stacked[i]}) {
-			t.Fatalf("stack %d %v not in %v", i, stacked[i], w.Work)
+		if stacked[i] != w.Work {
+			t.Fatalf("stack %d %v want %v", i, stacked[i], w.Work)
 		}
 	}
 }

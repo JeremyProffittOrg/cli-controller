@@ -132,9 +132,7 @@ func ApplyRects(windows []Window, rects []image.Rectangle) {
 		if !win32.IsWindow(h) {
 			continue
 		}
-		if win32.IsIconic(h) {
-			win32.ShowWindow(h, win32.SW_RESTORE)
-		}
+		win32.ShowWindow(h, win32.SW_RESTORE)
 		r := rects[i]
 		win32.SetWindowPos(h, win32.HWND_TOP,
 			int32(r.Min.X), int32(r.Min.Y), int32(r.Dx()), int32(r.Dy()),

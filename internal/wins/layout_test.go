@@ -36,24 +36,20 @@ func TestPerScreenRectsStayOnOwnScreen(t *testing.T) {
 		t.Fatalf("secondary %v", got[2])
 	}
 	stacked := PerScreenRects(works, StackRects)
-	if !RectsInside(primary, []image.Rectangle{stacked[0], stacked[1]}) || !RectsInside(secondary, []image.Rectangle{stacked[2]}) {
+	if stacked[0] != primary || stacked[1] != primary || stacked[2] != secondary {
 		t.Fatalf("stack %v", stacked)
 	}
 }
 
-func TestStackRectsCascade(t *testing.T) {
+func TestStackRectsFillWorkArea(t *testing.T) {
 	work := image.Rect(0, 0, 1920, 1032)
 	rects := StackRects(work, 4)
 	if len(rects) != 4 {
 		t.Fatal(len(rects))
 	}
-	if !RectsInside(work, rects) {
-		t.Fatalf("outside %v", rects)
-	}
-	if rects[1].Min.X-rects[0].Min.X != 32 || rects[1].Min.Y-rects[0].Min.Y != 32 {
-		t.Fatalf("offset %v", rects)
-	}
-	if rects[0].Dx() != work.Dx()*70/100 {
-		t.Fatalf("width %d", rects[0].Dx())
+	for i, r := range rects {
+		if r != work {
+			t.Fatalf("%d %v want %v", i, r, work)
+		}
 	}
 }
