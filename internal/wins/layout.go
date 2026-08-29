@@ -36,12 +36,55 @@ func TileRects(work image.Rectangle, n int) []image.Rectangle {
 }
 
 func StackRects(work image.Rectangle, n int) []image.Rectangle {
+	return StackRectsOffset(work, n, 32)
+}
+
+func StackRectsOffset(work image.Rectangle, n, step int) []image.Rectangle {
 	if n <= 0 {
 		return nil
 	}
+	if step < 24 {
+		step = 24
+	}
+	maxOff := n - 1
+	minW := work.Dx() / 2
+	minH := work.Dy() / 2
+	if minW < 400 {
+		minW = 400
+	}
+	if minH < 300 {
+		minH = 300
+	}
+	if minW > work.Dx() {
+		minW = work.Dx()
+	}
+	if minH > work.Dy() {
+		minH = work.Dy()
+	}
+	for maxOff > 0 {
+		if work.Dx()-maxOff*step >= minW && work.Dy()-maxOff*step >= minH {
+			break
+		}
+		maxOff--
+	}
+	ww := work.Dx() - maxOff*step
+	hh := work.Dy() - maxOff*step
+	if ww < 1 {
+		ww = 1
+	}
+	if hh < 1 {
+		hh = 1
+	}
+	span := maxOff + 1
 	out := make([]image.Rectangle, n)
 	for i := 0; i < n; i++ {
-		out[i] = work
+		k := 0
+		if span > 1 {
+			k = i % span
+		}
+		x0 := work.Min.X + k*step
+		y0 := work.Min.Y + k*step
+		out[i] = image.Rect(x0, y0, x0+ww, y0+hh)
 	}
 	return out
 }

@@ -164,5 +164,8 @@ func Stack(list []Window) {
 	if len(list) == 0 {
 		return
 	}
-	ApplyRects(list, PerScreenRects(windowWorks(list), StackRects))
+	step := win32.CascadeStep()
+	ApplyRects(list, PerScreenRects(windowWorks(list), func(work image.Rectangle, n int) []image.Rectangle {
+		return StackRectsOffset(work, n, step)
+	}))
 }

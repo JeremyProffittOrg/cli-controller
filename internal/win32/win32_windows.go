@@ -106,8 +106,10 @@ const (
 	MONITOR_DEFAULTTONEAREST = 2
 	MONITORINFOF_PRIMARY     = 1
 
-	SM_CXSCREEN = 0
-	SM_CYSCREEN = 1
+	SM_CXSCREEN  = 0
+	SM_CYSCREEN  = 1
+	SM_CYCAPTION = 4
+	SM_CYFRAME   = 33
 
 	GWL_EXSTYLE = -20
 
@@ -292,6 +294,7 @@ var (
 	procGetMonitorInfoW      = modUser32.NewProc("GetMonitorInfoW")
 	procMonitorFromPoint     = modUser32.NewProc("MonitorFromPoint")
 	procMonitorFromWindow    = modUser32.NewProc("MonitorFromWindow")
+	procGetSystemMetrics     = modUser32.NewProc("GetSystemMetrics")
 	procGetCursorPos         = modUser32.NewProc("GetCursorPos")
 	procSetForeground        = modUser32.NewProc("SetForegroundWindow")
 	procCreatePopupMenu      = modUser32.NewProc("CreatePopupMenu")
@@ -581,6 +584,19 @@ func GetCurrentThreadId() uint32 {
 
 func FreeConsole() {
 	procFreeConsole.Call()
+}
+
+func GetSystemMetrics(idx int) int {
+	r, _, _ := procGetSystemMetrics.Call(uintptr(idx))
+	return int(int32(r))
+}
+
+func CascadeStep() int {
+	step := GetSystemMetrics(SM_CYCAPTION) + GetSystemMetrics(SM_CYFRAME)
+	if step < 32 {
+		step = 32
+	}
+	return step
 }
 
 func WorkRECTFromWindow(h windows.Handle) RECT {

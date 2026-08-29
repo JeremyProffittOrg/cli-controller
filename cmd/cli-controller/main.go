@@ -59,8 +59,11 @@ func runSelftest() error {
 		return fmt.Errorf("tile outside work %v", work)
 	}
 	sr := wins.StackRects(work, n)
-	if len(sr) == 0 || sr[0] != work {
-		return fmt.Errorf("stack size %v want %v", sr, work)
+	if !wins.RectsInside(work, sr) {
+		return fmt.Errorf("stack outside work %v", work)
+	}
+	if n == 1 && sr[0] != work {
+		return fmt.Errorf("stack n=1 %v want %v", sr[0], work)
 	}
 	if len(list) > 0 {
 		works := make([]image.Rectangle, len(list))
