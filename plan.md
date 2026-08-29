@@ -325,7 +325,7 @@ Manual confirmation during this milestone (operator may be gone; still do it): r
 
 ### verify-flash-install / gha-build — Push builds artifacts
 
-- [ ] gha-build — `git push origin main` then `gh run watch` of the triggered `build` workflow reaches conclusion `success`
+- [x] gha-build — `git push origin main` then `gh run watch` of the triggered `build` workflow reaches conclusion `success`
 
 ## Execution sequence
 
@@ -345,3 +345,4 @@ Do not idle: if upload waits, keep writing Go tests.
 - 2026-08-29 `go test ./...` ok. `go build` ok. `go test -tags live ./internal/wins ./internal/overlay` ok. `cli-controller.exe -selftest` printed `selftest ok windows=9 work=(0,0)-(1920,1032)`.
 - 2026-08-29 `scripts/flash-dial.ps1` SUCCESS 26.90 s. esptool COM10, MAC `b0:81:84:97:1e:54`. Serial read `CLI-DIAL/1` within 5 s.
 - 2026-08-29 `scripts/install.ps1` copied exe, created Start Menu and Startup `CLI Dial.lnk`. Process `cli-controller` pid 155228. Log: `connected COM10 serial`. USB enumerator serial string was empty; handshake still used VID/PID + hello. Physical encoder/tap/BtnA not turned this run (operator absent); those paths share the same Serial.printf as hello.
+- 2026-08-29 Deploy: completed in ~2m33s. `gh run 33275645809` success. windows-app 1m28s, firmware 2m33s. Sha `e5869c6`.
