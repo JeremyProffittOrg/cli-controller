@@ -381,7 +381,7 @@ def main():
     fig.suptitle(
         "M5Stack Dial under-shelf case   "
         f"{WIDTH:.0f} x {DEPTH:.1f} x {HEIGHT:.0f} mm    "
-        "walls 3 mm   top 5 mm   USB gap 15 mm",
+        "walls 3 mm   top 5 mm   USB gap 15 mm   all edges 1 mm round",
         fontsize=13,
         fontweight="medium",
         y=0.98,
