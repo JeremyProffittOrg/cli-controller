@@ -8,7 +8,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.patches import Circle, FancyArrowPatch, Rectangle
+from matplotlib.patches import Circle, FancyArrowPatch, Polygon, Rectangle
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 # --- same numbers as the SCAD ---
@@ -31,6 +31,7 @@ BOTTOM_CLEAR = 3.0
 WIDTH = 86.0
 SCREW_X = 33.0
 SCREW_Y = 18.0
+BOTTOM_CHAMFER = 30.0
 BEZEL_R = DIAL_BEZEL_D / 2
 CENTER_Z = WALL + BOTTOM_CLEAR + BEZEL_R
 INNER_TOP = CENTER_Z + BEZEL_R + USB_CLEAR
@@ -113,8 +114,21 @@ def _dim_v(ax, x, y1, y2, text, side=1):
     )
 
 
+def _front_outline():
+    hw = WIDTH / 2
+    c = BOTTOM_CHAMFER
+    return [
+        (-hw + c, 0),
+        (hw - c, 0),
+        (hw, c),
+        (hw, HEIGHT),
+        (-hw, HEIGHT),
+        (-hw, c),
+    ]
+
+
 def draw_front(ax):
-    _rect(ax, (-WIDTH / 2, 0), WIDTH, HEIGHT, ec="k", lw=1.4)
+    ax.add_patch(Polygon(_front_outline(), fill=False, ec="k", lw=1.4, closed=True))
     _rect(ax, (-WIDTH / 2, INNER_TOP), WIDTH, TOP_T, ec=MATLAB_BLUE, lw=1.0, ls="--")
     _circle(ax, (0, CENTER_Z), DIAL_HOLE_D / 2, ec=MATLAB_ORANGE, lw=1.8)
     _circle(ax, (0, CENTER_Z), DIAL_BEZEL_D / 2, ec=MATLAB_ORANGE, lw=0.8, ls="--")
@@ -142,6 +156,7 @@ def draw_front(ax):
     _dim_h(ax, -WIDTH / 2, WIDTH / 2, HEIGHT + 10, f"{WIDTH:.0f}")
     _dim_v(ax, -WIDTH / 2 - 10, 0, HEIGHT, f"{HEIGHT:.0f}", side=-1)
     _dim_v(ax, WIDTH / 2 + 8, CENTER_Z - DIAL_HOLE_D / 2, CENTER_Z + DIAL_HOLE_D / 2, "45.2")
+    _dim_h(ax, -WIDTH / 2, -WIDTH / 2 + BOTTOM_CHAMFER, -6, f"{BOTTOM_CHAMFER:.0f} chamfer", side=-1)
     ax.set_title("Front  (X-Z)")
     ax.set_xlabel("X")
     ax.set_ylabel("Z")
@@ -381,7 +396,7 @@ def main():
     fig.suptitle(
         "M5Stack Dial under-shelf case   "
         f"{WIDTH:.0f} x {DEPTH:.1f} x {HEIGHT:.0f} mm    "
-        "walls 3 mm   top 5 mm   USB gap 15 mm   all edges 1 mm round",
+        "walls 3 mm   top 5 mm   USB gap 15 mm   1 mm rounds   30 mm bottom chamfers",
         fontsize=13,
         fontweight="medium",
         y=0.98,

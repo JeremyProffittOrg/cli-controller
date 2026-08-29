@@ -29,6 +29,7 @@ screw_x       = 33.0;
 screw_y       = 18.0;
 print_slop    = 0.2;
 edge_r        = 1.0;          // round on every edge
+bottom_chamfer = 30.0;        // 45 deg cut on bottom-left and bottom-right
 fn_round      = 24;
 eps           = 0.2;
 
@@ -102,6 +103,29 @@ module pedestal_holes() {
     }
 }
 
+// 45 deg prism in +X/+Z, extruded along +Y.
+module corner_chamfer_prism(c, len) {
+    rotate([90, 0, 0])
+        translate([0, 0, -len])
+            linear_extrude(len)
+                polygon([[0, 0], [c, 0], [0, c]]);
+}
+
+// Large chamfers on the two bottom edges left and right of the dial opening.
+// Minkowski keeps the new edges at the 1 mm round.
+module bottom_chamfers() {
+    minkowski() {
+        union() {
+            translate([-width / 2, -2, 0])
+                corner_chamfer_prism(bottom_chamfer, depth + 4);
+            translate([width / 2, -2, 0])
+                mirror([1, 0, 0])
+                    corner_chamfer_prism(bottom_chamfer, depth + 4);
+        }
+        round_r();
+    }
+}
+
 module case_solid() {
     difference() {
         minkowski() {
@@ -117,6 +141,7 @@ module case_solid() {
         screw_bottom_access();
         cable_exit();
         pedestal_holes();
+        bottom_chamfers();
     }
 }
 
