@@ -1,0 +1,85 @@
+package wins
+
+import (
+	"image"
+	"math"
+)
+
+func TileRects(work image.Rectangle, n int) []image.Rectangle {
+	if n <= 0 {
+		return nil
+	}
+	cols := int(math.Ceil(math.Sqrt(float64(n))))
+	if cols < 1 {
+		cols = 1
+	}
+	rows := int(math.Ceil(float64(n) / float64(cols)))
+	cellW := work.Dx() / cols
+	cellH := work.Dy() / rows
+	out := make([]image.Rectangle, n)
+	for i := 0; i < n; i++ {
+		r := i / cols
+		c := i % cols
+		x0 := work.Min.X + c*cellW
+		y0 := work.Min.Y + r*cellH
+		x1 := x0 + cellW
+		y1 := y0 + cellH
+		if c == cols-1 {
+			x1 = work.Max.X
+		}
+		if r == rows-1 {
+			y1 = work.Max.Y
+		}
+		out[i] = image.Rect(x0, y0, x1, y1)
+	}
+	return out
+}
+
+func StackRects(work image.Rectangle, n int) []image.Rectangle {
+	if n <= 0 {
+		return nil
+	}
+	w := work.Dx() * 70 / 100
+	h := work.Dy() * 70 / 100
+	if w < 1 {
+		w = 1
+	}
+	if h < 1 {
+		h = 1
+	}
+	out := make([]image.Rectangle, n)
+	for i := 0; i < n; i++ {
+		x0 := work.Min.X + i*32
+		y0 := work.Min.Y + i*32
+		x1 := x0 + w
+		y1 := y0 + h
+		if x1 > work.Max.X {
+			x1 = work.Max.X
+			x0 = x1 - w
+			if x0 < work.Min.X {
+				x0 = work.Min.X
+			}
+		}
+		if y1 > work.Max.Y {
+			y1 = work.Max.Y
+			y0 = y1 - h
+			if y0 < work.Min.Y {
+				y0 = work.Min.Y
+			}
+		}
+		out[i] = image.Rect(x0, y0, x1, y1)
+	}
+	return out
+}
+
+func RectsInside(work image.Rectangle, rects []image.Rectangle) bool {
+	for _, r := range rects {
+		if r.Min.X < work.Min.X || r.Min.Y < work.Min.Y || r.Max.X > work.Max.X || r.Max.Y > work.Max.Y {
+			return false
+		}
+		if r.Dx() <= 0 || r.Dy() <= 0 {
+			return false
+		}
+	}
+	return true
+}

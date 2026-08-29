@@ -1,0 +1,7 @@
+.pio/
+firmware/.pio/
+cli-controller.exe
+*.exe
+.vscode/
+.idea/
+*.log
