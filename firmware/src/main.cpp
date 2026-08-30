@@ -2,7 +2,7 @@
 #include <cstring>
 #include <math.h>
 
-static const char *kFw = "0.4.1";
+static const char *kFw = "0.4.2";
 static const uint32_t kHostTimeoutMs = 3000;
 static const uint32_t kOverlayHoldMs = 2500;
 static const int kDetentPulses = 4;
@@ -23,6 +23,7 @@ static const char *pending = nullptr;
 static int rotDeg = 0;
 static M5Canvas canvas(&M5Dial.Display);
 static bool haveCanvas = false;
+static int canvasDepth = 0;
 
 static uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b) {
   return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
@@ -114,6 +115,7 @@ static void dropCanvas() {
     canvas.deleteSprite();
     haveCanvas = false;
   }
+  canvasDepth = 0;
 }
 
 static bool ensureCanvas() {
@@ -124,10 +126,16 @@ static bool ensureCanvas() {
   canvas.setColorDepth(16);
   if (ESP.getFreeHeap() > 180000) {
     haveCanvas = canvas.createSprite(240, 240);
+    if (haveCanvas) {
+      canvasDepth = 16;
+    }
   }
   if (!haveCanvas) {
     canvas.setColorDepth(8);
     haveCanvas = canvas.createSprite(240, 240);
+    if (haveCanvas) {
+      canvasDepth = 8;
+    }
   }
   if (haveCanvas) {
     canvas.setPivot(120, 120);
@@ -277,7 +285,15 @@ static void paint() {
   dirty = false;
   if (haveCanvas && softRot()) {
     canvas.setPivot(120, 120);
-    canvas.pushRotateZoom(120, 120, (float)rotDeg, 1.0f, 1.0f);
+    if (canvasDepth == 16) {
+      M5Dial.Display.pushImageRotateZoom(
+          120, 120, 120, 120, (float)rotDeg, 1.0f, 1.0f, 240, 240,
+          static_cast<const uint16_t *>(canvas.getBuffer()));
+    } else {
+      M5Dial.Display.pushImageRotateZoom(
+          120, 120, 120, 120, (float)rotDeg, 1.0f, 1.0f, 240, 240,
+          static_cast<const uint8_t *>(canvas.getBuffer()));
+    }
   }
 }
 

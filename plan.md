@@ -24,6 +24,7 @@ Recorded 2026-08-29 from the operator.
 - Config file: `%APPDATA%\cli-controller\config.json`. Log file: `%APPDATA%\cli-controller\cli-controller.log`.
 - No CGO. Build with `GOOS=windows GOARCH=amd64 CGO_ENABLED=0`.
 - Do not create Windows Task Scheduler tasks. The approved logon mechanism is a current-user Startup **shortcut** only.
+- 2026-08-30: Permanently repair arbitrary-angle Dial rendering; do not replace the saved 301-degree rotation with a cardinal-angle workaround.
 
 ## Verified facts
 
@@ -34,6 +35,7 @@ Recorded 2026-08-29 from the operator.
 - M5Dial hardware (docs.m5stack.com/en/core/M5Dial, SKU K130): ESP32-S3FN8, GC9A01 240x240 round LCD, FT3267 touch, encoder GPIO40/GPIO41 (16 detents, 64 pulses/rev), BtnA GPIO42, buzzer GPIO3, LCD SPI G4/G5/G6/G7/G8/G9, touch I2C G11/G12/G14. Libraries: `m5stack/M5Dial`, `m5stack/M5Unified`, `m5stack/M5GFX`. `M5Dial.begin(cfg, true, false)` enables encoder, disables RFID.
 - Primary display: `\\.\DISPLAY1`, 1920x1080, 96 DPI, work area 1920x1032 (taskbar 48 px). Three other monitors exist; overlay, tile, and stack use primary only.
 - Window survey 2026-08-29: Windows Terminal pid 14692 owns multiple **separate top-level windows** (not one window with tabs). Titles include ` - grok`, `Command Prompt - agy`, `C:\WINDOWS\system32\cmd.exe`, and session titles with no brand (`? Current plan`). `claude.exe` / `grok.exe` / `codex.exe` processes exist without their own HWND. Browser title `New chat - Claude - Google Chrome` must be excluded by host-process filter.
+- Live crash repro 2026-08-30: host `state` with `rot:301` on COM10 causes ESP32-S3 `LoadProhibited` at `firmware/src/main.cpp:280`; addr2line maps it through M5GFX `LGFX_Sprite::push_rotate_zoom` and `LGFXBase::create_pc_palette`. The same replay with `rot:90` has no panic.
 
 ## Assumptions (not yet measured)
 
@@ -261,6 +263,12 @@ depends on: protocol freeze (this document)
 
 Restart: compile fail = fix; upload fail = see flash-live.
 
+### firmware-dial / arbitrary-rotation-crash — Keep 301-degree rendering stable
+
+- [x] arbitrary-rotation-crash — the hardware replay sends `state` with `rot:301`, observes COM10 for at least 5 s, finds no `Guru Meditation` or extra boot marker, and confirms the expected firmware version.
+
+Restart: deterministic panic = fix before reflashing; upload failure = see flash-live.
+
 ### host-core — Serial, windows, overlay, layouts
 
 depends on: protocol freeze (this document). Files do not overlap firmware/
@@ -346,3 +354,7 @@ Do not idle: if upload waits, keep writing Go tests.
 - 2026-08-29 `scripts/flash-dial.ps1` SUCCESS 26.90 s. esptool COM10, MAC `b0:81:84:97:1e:54`. Serial read `CLI-DIAL/1` within 5 s.
 - 2026-08-29 `scripts/install.ps1` copied exe, created Start Menu and Startup `CLI Dial.lnk`. Process `cli-controller` pid 155228. Log: `connected COM10 serial`. USB enumerator serial string was empty; handshake still used VID/PID + hello. Physical encoder/tap/BtnA not turned this run (operator absent); those paths share the same Serial.printf as hello.
 - 2026-08-29 Deploy: completed in ~2m33s. `gh run 33275645809` success. windows-app 1m28s, firmware 2m33s. Sha `e5869c6`.
+- 2026-08-30 live differential replay: `rot:90` returned no panic and one boot marker; `rot:301` returned `Guru Meditation Error: Core 1 panic'ed (LoadProhibited)`. Backtrace `0x42019874` decoded to M5GFX palette rotation called by `paint` at `firmware/src/main.cpp:280`. Operator selected the permanent arbitrary-angle fix.
+- 2026-08-30 regression before fix: `scripts/verify-dial-rotation.ps1 -Rotation 301 -ObserveSeconds 5` exited 1 with `PANICS_AFTER_STATE=1`, `REBOOTS_AFTER_STATE=1`, firmware `0.4.1`.
+- 2026-08-30 firmware `0.4.2` build: `pio run -d C:\dev\cli-controller\firmware` SUCCESS in 21.34 s; RAM 27,956 bytes, flash 584,239 bytes. First COM10 upload failed while Windows reconfigured the crash-looping device; after a 4 s settle, the bounded retry succeeded and verified all flash hashes.
+- 2026-08-30 regression after fix: `scripts/verify-dial-rotation.ps1 -Rotation 301 -ObserveSeconds 8 -ExpectedFirmware 0.4.2` exited 0 with `PANICS_AFTER_STATE=0`, `REBOOTS_AFTER_STATE=0`. `go test ./...` passed. Installed host process pid 24572 connected to COM10 after the check.
