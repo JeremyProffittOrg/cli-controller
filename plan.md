@@ -45,6 +45,11 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
   - [x] Enlarge the circular badge and keep the full `CLI CONTROLLER` label inside it.
   - [x] Re-render, inspect every scene, and open the corrected video.
   - Done: contact-sheet review shows the full badge, audio is present at a suitable level, and the user can view the corrected MP4.
+- [~] README video hero
+  - [ ] Generate a lightweight animated preview from the corrected MP4.
+  - [ ] Place the preview and full-video link above the README introduction.
+  - [ ] Verify GitHub's public rendered README shows the hero and resolves the MP4 link.
+  - Done: the public repository page displays the animated hero above the fold and its link returns the full video.
 - [x] Verification and delivery
   - [x] Run documentation link checks, `go test ./...`, Windows build, and firmware build.
   - [x] Stage only documentation task files, commit, push `main`, and watch the triggered workflow to success.
@@ -84,3 +89,5 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
 - 2026-08-30: PowerShell parser, README local-link check, `git diff --check`, and media probes passed.
 - 2026-08-30: Commit `efb2583b062934b17563192b69ffb07e3392d291` replaced the narration, fixed the badge, updated the builder and README, and replaced the MP4.
 - 2026-08-30: GitHub Actions run `33335532130` concluded `success`; firmware job `99321638360` and windows-app job `99321638522` passed. The Windows job emitted a non-fatal setup-go cache warning after its tests, build, and artifact upload succeeded.
+- 2026-08-30: User requested that the video be embedded and featured as the README hero.
+- 2026-08-30: GitHub's Markdown API rendered a native HTML `<video>` block as an empty paragraph, confirming that README video tags are stripped. Selected an animated linked preview plus direct full-video call-to-action.
