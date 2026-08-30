@@ -10,6 +10,8 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
 
 - 2026-08-30: Generate an extensive README with part diagrams, flow diagrams, and screenshots.
 - 2026-08-30: Also build a fun user how-to video.
+- 2026-08-30: Replace the poor local text-to-speech narration and fix the clipped `CLI CONTROLLER` circle badge.
+- 2026-08-30: Approved installing `edge-tts` and sending only the narration text to Microsoft's neural speech service.
 
 ## Verified facts
 
@@ -38,6 +40,11 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
 - [x] User how-to video
   - [x] Build a narrated 1080p H.264/AAC MP4 with title, system overview, wiring, four settings tabs, gesture use, and closing guidance.
   - Done: `ffprobe` reports a playable 1920x1080 H.264 video with AAC audio and nonzero duration.
+- [~] Video quality correction
+  - [ ] Replace local System.Speech with an explicit Microsoft neural voice and normalized audio.
+  - [ ] Enlarge the circular badge and keep the full `CLI CONTROLLER` label inside it.
+  - [ ] Re-render, inspect every scene, and open the corrected video.
+  - Done: contact-sheet review shows the full badge, audio is present at a suitable level, and the user can view the corrected MP4.
 - [x] Verification and delivery
   - [x] Run documentation link checks, `go test ./...`, Windows build, and firmware build.
   - [x] Stage only documentation task files, commit, push `main`, and watch the triggered workflow to success.
@@ -68,3 +75,5 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
 - 2026-08-30: `go test ./...`, the Windows GUI build, and `pio run -d firmware` passed.
 - 2026-08-30: Commit `41685fb88ce3906d4510dd73de9566dae2c10b2e` added only the documentation, verified screenshots, video source, rendered video, and plan update.
 - 2026-08-30: Pushed `main`; GitHub Actions run `33335139734` concluded `success`. Firmware job `99320594914` and windows-app job `99320595056` both passed.
+- 2026-08-30: User rejected the local text-to-speech quality and reported that the circular `CLI CONTROLLER` label was clipped.
+- 2026-08-30: Installed approved `edge-tts` 7.2.8 for the current user and selected `en-US-BrianNeural` for the correction.
