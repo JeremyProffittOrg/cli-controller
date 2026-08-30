@@ -44,7 +44,7 @@ Every checked-in STL file loads as one triangle mesh and is watertight after nor
 |---|---:|---|---|
 | M5Dial shelf case | 10,972 | 86.0 × 50.8 × 62.0 | Yes |
 | VL53L4CD case | 4,136 | 39.0 × 12.0 × 48.8 including wings | Yes |
-| PCA9548 mux case, std | 7,504 | 47.64 × 27.32 × 12.00 | Yes |
-| PCA9548 mux case, tall | 7,504 | 47.64 × 27.32 × 24.00 | Yes |
+| PCA9548 mux case, std | 6,716 | 73.64 × 33.32 × 12.00 including end tabs | Yes |
+| PCA9548 mux case, tall | 6,716 | 73.64 × 33.32 × 24.00 including end tabs | Yes |
 
 Review slicer previews before printing. Printer calibration, material shrinkage, cable bend radius, screw-head geometry, and board revisions can change the final fit.

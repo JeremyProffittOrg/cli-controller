@@ -1,8 +1,9 @@
 # Adafruit PCA9548 I2C multiplexer case
 
 Open-top tray for the [Adafruit PCA9548 8-Channel STEMMA QT / Qwiic I2C
-Multiplexer, product 5626](https://www.adafruit.com/product/5626). Two heights.
-Nine 3 mm x 3 mm cable exits sit at the same Z in both heights.
+Multiplexer, product 5626](https://www.adafruit.com/product/5626). Two heights,
+a 3 mm buffer around the board, eight cable exits notched down from the rim,
+and a mounting tab on each short end.
 
 | Standard, 12 mm | Tall, 24 mm |
 |---|---|
@@ -27,54 +28,67 @@ or from the marketing dimensions.
 | Controller port | 1 x `JST_SH4`, board x 3.175, y 10.16 (left end, on centre) | `CONN4` |
 
 The model is centred, so board coordinates are shifted by (-20.32, -10.16).
-Port centres become X = -11.43 / -3.81 / +3.81 / +11.43, and the controller
-port lands exactly on Y = 0.
+Channel-port centres become X = -11.43 / -3.81 / +3.81 / +11.43, and the
+controller port lands exactly on Y = 0.
 
 ## Case
 
 | Parameter | Value |
 |---|---|
-| Outer | 47.64 x 27.32 mm, corner R6.04 |
+| Outer body | 53.64 x 33.32 mm, corner R9.04 |
+| Overall, across the tabs | 73.64 x 33.32 mm |
 | Height | 12.00 mm (`std`) or 24.00 mm (`tall`) |
 | Wall / floor | 3.00 / 2.00 mm |
-| Board clearance | 0.50 mm per side |
+| Gap to the board | 3.50 mm per side (0.50 mm print fit + 3.00 mm buffer) |
 | Standoffs | 4 x D5.00, 3.00 mm off the floor top |
 | Screw pilots | D2.00 x 4.00 mm deep, for M2 self-tapping screws |
 | Board underside | Z = 5.00 mm |
 | Board top face | Z = 6.60 mm |
-| Cable exits | 9 x 3.00 x 3.00 mm, corner R0.60, Z 2.00 to 5.00 |
 
 The board goes in **component-side down**. The four standoffs are 3.00 mm tall,
-which clears the 2.9 mm JST SH shells, and the shells then sit inside the
-cutout mouths. The top edge of every cutout is flush with the board underside
-at Z 5.00, so each cable leaves the case at floor level with no bend.
+which clears the 2.9 mm JST SH shells. The 3.50 mm gap on every side leaves
+room for a cable to turn up out of a connector and reach the rim.
 
-Four cutouts sit in each long wall, one per JST SH channel port, and one sits
-in the left end wall on the controller-side port. The right end wall is left
-solid: the `JP1` 1x05 breadboard row ships unpopulated and the open top reaches
-it, along with the `A0` / `A1` / `A2` address jumpers, `SW1`, and the power LED.
+## Cable exits
 
-## What changes between the two heights
+Eight 3.00 x 3.00 mm exits, lower corners R0.60, notched **down from the rim**:
 
-Only wall above the board. The floor, the standoffs, the screw pilots and all
-nine cutouts are at identical Z in both files, which was checked by comparing
-cross-section areas:
+| Variant | Exit Z band |
+|---|---|
+| `std`, height 12.00 | 9.00 to 12.00 |
+| `tall`, height 24.00 | 21.00 to 24.00 |
 
-```
-z= 1.0  std area 1257.5691  tall area 1257.5691  delta 1.36e-12
-z= 2.5  std area  375.7123  tall area  375.7123  delta 5.68e-14
-z= 3.5  std area  375.2417  tall area  375.2417  delta 5.68e-14
-z= 4.9  std area  389.7395  tall area  389.7395  delta 1.14e-13
-z= 6.0  std area  390.3154  tall area  390.3154  delta 1.82e-12
-```
+Four sit in each long wall, on the eight JST SH channel-port centres. Because
+they open onto the rim they print with no bridging at all.
 
-The tall version leaves 17.40 mm of clear space above the board for cable
-slack, a stacked board, or a lid of your own.
+The two short ends carry tabs and **no** cable exits. A tab and an exit would
+occupy the same `max(z) - 3` band on the same wall, so the tab would sit
+directly across the mouth of an end exit and block it. Cables from the
+controller-side port leave over the open top or through a nearby long-wall exit.
+
+## End tabs
+
+One tab on each short end, centred on Y = 0:
+
+| Parameter | Value |
+|---|---|
+| Projection | 10.00 mm beyond the end wall |
+| Width | 10.00 mm |
+| Thickness | 3.00 mm, in the `max(z) - 3` band |
+| Outer end | rounded, R5.00 |
+| Hole | D4.00, 5.00 mm out, so R3.00 of material all round it |
+
+The 4 mm hole sits at the centre of the rounded end, which is why the tab is
+10 mm wide: it keeps 3.00 mm of material around the hole on every side.
 
 ## Printing
 
-Print floor-down, open top up. No support is needed: the standoffs rise from
-the floor and each cutout only bridges 3 mm of wall.
+Print floor-down, open top up.
+
+- The rim notches need no bridging.
+- The two end tabs are cantilevered at the rim with nothing beneath them.
+  **Enable support for them**, or print the part rim-down instead, which puts
+  both tabs flat on the bed and turns the floor into a bridge.
 
 ```powershell
 & 'C:\Program Files\OpenSCAD\openscad.com' -o case\pca9548_case_std.stl  -D 'variant="std"'  case\pca9548_case.scad
@@ -97,13 +111,16 @@ processing:
 
 | Model | Triangles | Bounds, mm | Volume, mm3 | Watertight |
 |---|---:|---|---:|---|
-| `pca9548_case_std.stl` | 7,504 | 47.64 x 27.32 x 12.00 | 6393.99 | Yes |
-| `pca9548_case_tall.stl` | 7,504 | 47.64 x 27.32 x 24.00 | 11077.78 | Yes |
+| `pca9548_case_std.stl` | 6,716 | 73.64 x 33.32 x 12.00 | 8335.19 | Yes |
+| `pca9548_case_tall.stl` | 6,716 | 73.64 x 33.32 x 24.00 | 13697.09 | Yes |
 
-Twenty-eight point-containment probes confirmed that all nine cutouts are open
-at Z 3.5, that the wall is solid between them and above them, that the right
-end wall is solid, and that the four screw pilots are open on axis and closed
-1.00 mm above the bed.
+Thirty-four point-containment probes pass on each file. They confirm that all
+eight rim notches are open at their mid-height, that the wall is solid below
+each notch and between adjacent notches, that both short-end walls are solid on
+centre, that each tab is solid at 2 mm and 9.5 mm out and empty past 10.5 mm
+out and 1 mm below its band, that each D4.00 tab hole is open on axis and solid
+2.6 mm off axis, that the 3.50 mm buffer is open where wall used to be, and
+that the four screw pilots are open on axis and closed 1.00 mm above the bed.
 
 Review the slicer preview before printing. Printer calibration, material
 shrinkage, cable bend radius, screw-head geometry, and board revisions can
