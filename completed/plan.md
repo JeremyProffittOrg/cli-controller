@@ -312,7 +312,7 @@ depends on: host-core
 
 ### host-tray-settings / dial-settings-entry — Settings is the final dial item
 
-- [!] dial-settings-entry — focused app tests confirm `Settings` is last after all CLI windows, remains selected across refresh, appears in host state, and routes activation to the Settings dialog. Live dial activation is blocked because COM10 and every present VID_303A interface disappeared at 2026-08-30 05:33:57. Unblock: operator reconnects the physical Dial; the installed host is running and will retry automatically.
+- [x] dial-settings-entry — focused app tests confirm `Settings` is last after all CLI windows, remains selected across refresh, appears in host state, and routes activation to the Settings dialog. Operator confirmed live Dial activation complete on 2026-08-30.
 
 ### host-tray-settings / install-scripts — install.ps1 / uninstall.ps1 / flash-dial.ps1
 
@@ -378,3 +378,4 @@ Do not idle: if upload waits, keep writing Go tests.
 - 2026-08-30 removed the red overlay needle. Item rows now use HUD slot plates plus brand icons (cmd, powershell, claude, grok, antigravity, opencode, codex, unknown, settings, empty). Selected row uses the brighter plate.
 - 2026-08-30 `scripts/install.ps1` installed the verified exe and started pid 30724. Host log shows the physical Dial disconnected at 05:33:57; PresentOnly PnP and `SerialPort.GetPortNames()` show no COM10 and no VID_303A device, meeting stop condition 2 for live dial activation only.
 - 2026-08-30 delivery: pushed commit `5fdd5b5` to `main`. GitHub run `33304569802` completed `success`; windows-app passed tests, built, and uploaded its artifact in 30 s; firmware built and uploaded its unchanged artifact in 2m6s. Final PnP check still found no VID_303A interface, so live Settings activation remains blocked only on reconnecting the physical Dial.
+- 2026-08-30 operator confirmed the remaining live Dial Settings activation is complete. All workstreams are complete, and the plan was archived to `completed/plan.md`.
