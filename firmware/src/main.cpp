@@ -2,7 +2,7 @@
 #include <cstring>
 #include <math.h>
 
-static const char *kFw = "0.4.0";
+static const char *kFw = "0.4.1";
 static const uint32_t kHostTimeoutMs = 3000;
 static const uint32_t kOverlayHoldMs = 2500;
 static const int kDetentPulses = 4;
@@ -107,18 +107,53 @@ static int wrapDeg(int deg) {
   return deg;
 }
 
+static bool softRot() { return (rotDeg % 90) != 0; }
+
+static void dropCanvas() {
+  if (haveCanvas) {
+    canvas.deleteSprite();
+    haveCanvas = false;
+  }
+}
+
+static bool ensureCanvas() {
+  if (haveCanvas) {
+    return true;
+  }
+  canvas.setPsram(false);
+  canvas.setColorDepth(16);
+  if (ESP.getFreeHeap() > 180000) {
+    haveCanvas = canvas.createSprite(240, 240);
+  }
+  if (!haveCanvas) {
+    canvas.setColorDepth(8);
+    haveCanvas = canvas.createSprite(240, 240);
+  }
+  if (haveCanvas) {
+    canvas.setPivot(120, 120);
+  }
+  return haveCanvas;
+}
+
 static void applyRotation(int deg) {
   deg = wrapDeg(deg);
   if (deg == rotDeg) {
     return;
   }
   rotDeg = deg;
+  if (softRot()) {
+    M5Dial.Display.setRotation(0);
+    ensureCanvas();
+  } else {
+    dropCanvas();
+    M5Dial.Display.setRotation(deg / 90);
+  }
   dirty = true;
   drawn = (Screen)-1;
 }
 
 static void mapTouch(int px, int py, int *ox, int *oy) {
-  if (rotDeg == 0) {
+  if (!softRot()) {
     *ox = px;
     *oy = py;
     return;
@@ -152,7 +187,12 @@ static bool inStack(int x, int y) {
   return inFace(x, y) && x >= 120 && y < 148;
 }
 
-static M5Canvas &face() { return canvas; }
+static LovyanGFX &face() {
+  if (haveCanvas && softRot()) {
+    return canvas;
+  }
+  return M5Dial.Display;
+}
 
 static void drawWaiting() {
   auto &d = face();
@@ -235,12 +275,9 @@ static void paint() {
   }
   drawn = screen;
   dirty = false;
-  if (haveCanvas) {
-    M5Dial.Display.startWrite();
-    M5Dial.Display.fillScreen(COL_BG);
+  if (haveCanvas && softRot()) {
     canvas.setPivot(120, 120);
     canvas.pushRotateZoom(120, 120, (float)rotDeg, 1.0f, 1.0f);
-    M5Dial.Display.endWrite();
   }
 }
 
@@ -295,15 +332,6 @@ void setup() {
     delay(10);
   }
   M5Dial.Display.setRotation(0);
-  canvas.setColorDepth(16);
-  haveCanvas = canvas.createSprite(240, 240);
-  if (!haveCanvas) {
-    canvas.setColorDepth(8);
-    haveCanvas = canvas.createSprite(240, 240);
-  }
-  if (haveCanvas) {
-    canvas.setPivot(120, 120);
-  }
   encPos = M5Dial.Encoder.read();
   sendHello();
   lastHostMs = 0;
@@ -357,7 +385,9 @@ void loop() {
   if (t.wasClicked() && hostLink && screen != SCREEN_OVERLAY) {
     int lx = t.x;
     int ly = t.y;
-    mapTouch(t.x, t.y, &lx, &ly);
+    if (softRot()) {
+      mapTouch(t.x, t.y, &lx, &ly);
+    }
     if (inOK(lx, ly)) {
       click();
       sendTap(pending);
