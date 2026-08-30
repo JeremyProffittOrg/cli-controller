@@ -204,6 +204,9 @@ func hostProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 	case win32.WM_DWELL:
 		inst.activate()
 		return 0
+	case win32.WM_OPEN_SETTINGS:
+		inst.openSettings()
+		return 0
 	case win32.WM_DESTROY:
 		win32.PostQuit(0)
 		return 0

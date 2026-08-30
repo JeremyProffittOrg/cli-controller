@@ -73,3 +73,9 @@ Non-goals: case-design changes, scheduled automation, AWS infrastructure changes
 - 2026-08-30: Commit `7f58fe5` added only `plan.md`.
 - 2026-08-30: `go test ./internal/config ./internal/protocol ./internal/motion ./internal/settings ./internal/app` passed after host and settings implementation.
 - 2026-08-30: `pio run -d firmware` succeeded for firmware 0.5.0; RAM use 8.6%, flash use 17.7%.
+- 2026-08-30: `go test ./...`, Windows GUI build, and the final incremental firmware build passed.
+- 2026-08-30: `scripts/flash-dial.ps1 -Port COM10` succeeded on the first attempt.
+- 2026-08-30: Dial verification reported `FIRMWARE_HELLO={"v":1,"t":"hello","fw":"0.5.0","dev":"cli-dial"}`, `PANICS_AFTER_STATE=0`, and `REBOOTS_AFTER_STATE=0`.
+- 2026-08-30: `scripts/install.ps1` installed `C:\Users\Jeremy\AppData\Local\Programs\cli-controller\cli-controller.exe`; process 36288 is running and the application log records `connected COM10`.
+- 2026-08-30: Visually verified complete, unclipped Controller, Display, Knees, and Desk tabs. Screenshots are in `C:\Users\Jeremy\AppData\Local\Temp\cli-controller-screenshots`.
+- 2026-08-30: Added physical hardware and gesture validation only to `backlog.md`.
