@@ -214,10 +214,10 @@ module top_opening() {
         rounded_rect_cut(top_open_w, top_open_d, top_t + 8, top_open_cr);
 }
 
-// Internal pad on the inner back face. Outer face is flush with the rear wall.
+// Thickened inner back around the LEDs, full case width, flush outside.
 module led_housing() {
-    translate([-ped_w / 2, depth - wall - ped_t, center_z - ped_h / 2])
-        cube([ped_w, wall + ped_t + 1, ped_h]);
+    translate([-width / 2, depth - wall - ped_t, center_z - ped_h / 2])
+        cube([width, wall + ped_t + 1, ped_h]);
 }
 
 module led_holes() {

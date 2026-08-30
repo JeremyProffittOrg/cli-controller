@@ -263,7 +263,7 @@ def draw_right(ax):
 
 def draw_back(ax):
     _rect(ax, (-WIDTH / 2, 0), WIDTH, HEIGHT, ec="k", lw=1.4)
-    _rect(ax, (-PED_W / 2, CENTER_Z - PED_H / 2), PED_W, PED_H, ec=MATLAB_GREEN, lw=1.5)
+    _rect(ax, (-WIDTH / 2, CENTER_Z - PED_H / 2), WIDTH, PED_H, ec=MATLAB_GREEN, lw=1.5)
     ax.add_patch(
         Rectangle(
             (-CABLE_SLOT_W / 2, CABLE_Z - CABLE_SLOT_H / 2),
@@ -337,7 +337,7 @@ def draw_iso(ax):
     _add_poly(ax, _box_faces(x0, x1, 0, DEPTH, 0, HEIGHT), MATLAB_BLUE, 0.28)
     _add_poly(
         ax,
-        _box_faces(-PED_W / 2, PED_W / 2, DEPTH - WALL, DEPTH, CENTER_Z - PED_H / 2, CENTER_Z + PED_H / 2),
+        _box_faces(-WIDTH / 2, WIDTH / 2, DEPTH - WALL, DEPTH, CENTER_Z - PED_H / 2, CENTER_Z + PED_H / 2),
         MATLAB_GREEN,
         0.55,
     )
