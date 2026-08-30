@@ -49,8 +49,8 @@ Non-goals: case-design changes, scheduled automation, AWS infrastructure changes
 - [x] Four-tab settings dialog
   - [x] Add Controller, Display, Knees, and Desk native tabs with no-hardware status and unchanged Commit/Abort behavior.
   - Done command: config round-trip tests and visual inspection of all four tabs.
-- [ ] Verification, installation, and delivery
-  - [ ] Run all Go and firmware checks, flash and verify COM10, install and verify the application, capture four screenshots, update `backlog.md`, commit and push only task files, watch GitHub Actions to success, and email the screenshots through SES.
+- [x] Verification, installation, and delivery
+  - [x] Run all Go and firmware checks, flash and verify COM10, install and verify the application, capture four screenshots, update `backlog.md`, commit and push only task files, watch GitHub Actions to success, and email the screenshots through SES.
   - Done commands: `go test ./...`; `go build -ldflags="-H windowsgui" -o cli-controller.exe ./cmd/cli-controller`; `pio run -d firmware`; flash and verify scripts; `git diff --check`; `gh run watch <run-id>`; SES send returning a message ID.
 
 ## Retry policy
@@ -79,3 +79,7 @@ Non-goals: case-design changes, scheduled automation, AWS infrastructure changes
 - 2026-08-30: `scripts/install.ps1` installed `C:\Users\Jeremy\AppData\Local\Programs\cli-controller\cli-controller.exe`; process 36288 is running and the application log records `connected COM10`.
 - 2026-08-30: Visually verified complete, unclipped Controller, Display, Knees, and Desk tabs. Screenshots are in `C:\Users\Jeremy\AppData\Local\Temp\cli-controller-screenshots`.
 - 2026-08-30: Added physical hardware and gesture validation only to `backlog.md`.
+- 2026-08-30: Pushed `main` at `6dcaf263f139055bcaeffa3feca0742dbb753db6`.
+- 2026-08-30: GitHub Actions run `33333740869` concluded `success`; firmware job `99316828577` and windows-app job `99316828640` both passed.
+- 2026-08-30: The delegated SES sender failed without sending because its MIME message lacked `From`; the required inline fallback corrected the MIME headers and CLI input format.
+- 2026-08-30: SES accepted the HTML status email with all four screenshots. Message ID: `010001a054656d38-43baf1e0-2ef4-4c72-82a1-ebf817247b29-000000`.
