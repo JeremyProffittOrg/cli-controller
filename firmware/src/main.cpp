@@ -1,8 +1,11 @@
 #include <M5Dial.h>
+#include <Wire.h>
+#include <vl53l4cd_class.h>
+#include <Adafruit_ADXL345_U.h>
 #include <cstring>
 #include <math.h>
 
-static const char *kFw = "0.4.2";
+static const char *kFw = "0.5.0";
 static const uint32_t kHostTimeoutMs = 3000;
 static const uint32_t kOverlayHoldMs = 2500;
 static const int kDetentPulses = 4;
@@ -24,6 +27,145 @@ static int rotDeg = 0;
 static M5Canvas canvas(&M5Dial.Display);
 static bool haveCanvas = false;
 static int canvasDepth = 0;
+static TwoWire sensorWire(1);
+static VL53L4CD tof0(&sensorWire, -1);
+static VL53L4CD tof1(&sensorWire, -1);
+static VL53L4CD tof2(&sensorWire, -1);
+static VL53L4CD tof3(&sensorWire, -1);
+static VL53L4CD *tofSensors[4] = {&tof0, &tof1, &tof2, &tof3};
+static bool sensorOK[5] = {false, false, false, false, false};
+static bool sensorReported[5] = {false, false, false, false, false};
+static uint8_t sensorFailures[5] = {0, 0, 0, 0, 0};
+static uint32_t lastTofPollMs = 0;
+static uint32_t lastAccelPollMs = 0;
+static uint32_t lastSensorScanMs = 0;
+static uint8_t nextSensorScan = 0;
+static bool muxOK = false;
+
+static bool muxSelect(uint8_t channel) {
+  sensorWire.beginTransmission(0x70);
+  sensorWire.write((uint8_t)(1U << channel));
+  return sensorWire.endTransmission() == 0;
+}
+
+static bool i2cProbe(uint8_t address) {
+  sensorWire.beginTransmission(address);
+  return sensorWire.endTransmission() == 0;
+}
+
+static void reportSensor(uint8_t channel, const char *kind, bool ok) {
+  if (sensorReported[channel] && sensorOK[channel] == ok) {
+    return;
+  }
+  sensorOK[channel] = ok;
+  sensorReported[channel] = true;
+  Serial.printf("{\"v\":1,\"t\":\"sensor\",\"ch\":%u,\"kind\":\"%s\",\"ok\":%s}\n",
+                channel, kind, ok ? "true" : "false");
+}
+
+static bool adxlWrite(uint8_t reg, uint8_t value) {
+  if (!muxSelect(4)) return false;
+  sensorWire.beginTransmission(0x53);
+  sensorWire.write(reg);
+  sensorWire.write(value);
+  return sensorWire.endTransmission() == 0;
+}
+
+static bool adxlRead(uint8_t reg, uint8_t *data, size_t count) {
+  if (!muxSelect(4)) return false;
+  sensorWire.beginTransmission(0x53);
+  sensorWire.write(reg);
+  if (sensorWire.endTransmission(false) != 0) return false;
+  if (sensorWire.requestFrom((uint8_t)0x53, count) != count) return false;
+  for (size_t i = 0; i < count; ++i) data[i] = sensorWire.read();
+  return true;
+}
+
+static bool initAccel() {
+  uint8_t id = 0;
+  if (!adxlRead(0x00, &id, 1) || id != 0xE5) return false;
+  return adxlWrite(0x31, 0x08) && adxlWrite(0x2C, 0x09) && adxlWrite(0x2D, 0x08);
+}
+
+static bool initTof(uint8_t channel) {
+  if (!muxSelect(channel) || !i2cProbe(0x29)) return false;
+  VL53L4CD *sensor = tofSensors[channel];
+  sensor->begin();
+  if (sensor->InitSensor() != 0) return false;
+  if (sensor->VL53L4CD_SetRangeTiming(50, 0) != 0) return false;
+  return sensor->VL53L4CD_StartRanging() == 0;
+}
+
+static void markMuxMissing() {
+  muxOK = false;
+  for (uint8_t ch = 0; ch < 5; ++ch) {
+    reportSensor(ch, ch == 4 ? "accel" : "tof", false);
+    sensorFailures[ch] = 0;
+  }
+}
+
+static void scanSensors(uint32_t now) {
+  if (now - lastSensorScanMs < 400) return;
+  lastSensorScanMs = now;
+  if (!muxOK) {
+    sensorWire.beginTransmission(0x70);
+    if (sensorWire.endTransmission() != 0) {
+      markMuxMissing();
+      return;
+    }
+    muxOK = true;
+  }
+  uint8_t ch = nextSensorScan;
+  nextSensorScan = (uint8_t)((nextSensorScan + 1) % 5);
+  if (sensorOK[ch]) return;
+  bool ok = ch == 4 ? initAccel() : initTof(ch);
+  reportSensor(ch, ch == 4 ? "accel" : "tof", ok);
+  sensorFailures[ch] = 0;
+}
+
+static void sensorFailed(uint8_t channel, const char *kind) {
+  if (++sensorFailures[channel] < 3) return;
+  sensorFailures[channel] = 0;
+  reportSensor(channel, kind, false);
+}
+
+static void pollTof(uint32_t now) {
+  if (now - lastTofPollMs < 50) return;
+  lastTofPollMs = now;
+  for (uint8_t ch = 0; ch < 4; ++ch) {
+    if (!sensorOK[ch]) continue;
+    if (!muxSelect(ch)) { markMuxMissing(); return; }
+    uint8_t ready = 0;
+    if (tofSensors[ch]->VL53L4CD_CheckForDataReady(&ready) != 0) {
+      sensorFailed(ch, "tof");
+      continue;
+    }
+    if (!ready) continue;
+    VL53L4CD_Result_t result;
+    if (tofSensors[ch]->VL53L4CD_GetResult(&result) != 0 ||
+        tofSensors[ch]->VL53L4CD_ClearInterrupt() != 0) {
+      sensorFailed(ch, "tof");
+      continue;
+    }
+    sensorFailures[ch] = 0;
+    if (result.range_status == 0 && result.distance_mm > 0) {
+      Serial.printf("{\"v\":1,\"t\":\"tof\",\"ch\":%u,\"mm\":%u}\n", ch, result.distance_mm);
+    }
+  }
+}
+
+static void pollAccel(uint32_t now) {
+  if (!sensorOK[4] || now - lastAccelPollMs < 20) return;
+  lastAccelPollMs = now;
+  uint8_t data[6];
+  if (!adxlRead(0x32, data, sizeof(data))) { sensorFailed(4, "accel"); return; }
+  sensorFailures[4] = 0;
+  int16_t rawX = (int16_t)((uint16_t)data[1] << 8 | data[0]);
+  int16_t rawY = (int16_t)((uint16_t)data[3] << 8 | data[2]);
+  int16_t rawZ = (int16_t)((uint16_t)data[5] << 8 | data[4]);
+  Serial.printf("{\"v\":1,\"t\":\"accel\",\"ch\":4,\"x\":%d,\"y\":%d,\"z\":%d}\n",
+                rawX * 4, rawY * 4, rawZ * 4);
+}
 
 static uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b) {
   return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
@@ -348,6 +490,8 @@ void setup() {
     delay(10);
   }
   M5Dial.Display.setRotation(0);
+  sensorWire.begin(13, 15, 400000);
+  sensorWire.setTimeOut(20);
   encPos = M5Dial.Encoder.read();
   sendHello();
   lastHostMs = 0;
@@ -356,12 +500,18 @@ void setup() {
   screen = SCREEN_WAIT;
   dirty = true;
   paint();
+  for (uint8_t ch = 0; ch < 5; ++ch) {
+    reportSensor(ch, ch == 4 ? "accel" : "tof", false);
+  }
 }
 
 void loop() {
   M5Dial.update();
   readSerial();
   uint32_t now = millis();
+  scanSensors(now);
+  pollTof(now);
+  pollAccel(now);
 
   if (hostLink && (now - lastHostMs) > kHostTimeoutMs) {
     hostLink = false;

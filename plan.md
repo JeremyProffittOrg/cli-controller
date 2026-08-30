@@ -40,8 +40,8 @@ Non-goals: case-design changes, scheduled automation, AWS infrastructure changes
 - [x] Plan and protocol contract
   - [x] Create and commit `C:\dev\cli-controller\plan.md` before implementation.
   - Done command: `Test-Path C:\dev\cli-controller\plan.md`; `git show --stat HEAD` must contain only `plan.md`.
-- [ ] Firmware sensor transport
-  - [ ] Add isolated external I2C, optional sensor discovery, nonblocking samples and recovery, and firmware 0.5.0.
+- [x] Firmware sensor transport
+  - [x] Add isolated external I2C, optional sensor discovery, nonblocking samples and recovery, and firmware 0.5.0.
   - Done command: `pio run -d C:\dev\cli-controller\firmware`.
 - [x] Host motion engine
   - [x] Add protocol parsing, normalized configuration, knee filtering/latching/modes, and desk high-pass gesture actions.
