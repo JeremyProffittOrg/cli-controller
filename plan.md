@@ -12,6 +12,8 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
 - 2026-08-30: Also build a fun user how-to video.
 - 2026-08-30: Replace the poor local text-to-speech narration and fix the clipped `CLI CONTROLLER` circle badge.
 - 2026-08-30: Approved installing `edge-tts` and sending only the narration text to Microsoft's neural speech service.
+- 2026-08-30: Feature the printable case STL files near the top of the main README.
+- 2026-08-30: Give each case its own README with MATLAB drawing sources and multi-angle images rendered from the STL.
 
 ## Verified facts
 
@@ -50,6 +52,13 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
   - [ ] Place the preview and full-video link above the README introduction.
   - [ ] Verify GitHub's public rendered README shows the hero and resolves the MP4 link.
   - Done: the public repository page displays the animated hero above the fold and its link returns the full video.
+- [~] Printable case documentation
+  - [ ] Add a prominent top-level case link near the README video hero.
+  - [ ] Create a case index and one README for the M5Dial shelf case and one for the VL53L4CD sensor case.
+  - [ ] Retain and document each OpenSCAD, STL, MATLAB, and supporting drawing source.
+  - [ ] Render consistent front, rear, top, side, and isometric images from both STL meshes.
+  - [ ] Regenerate the MATLAB-style mechanical drawing images and verify every local case link.
+  - Done: both case guides resolve their model, source, drawing, and multi-angle image links, and the main README links the case index above the fold.
 - [x] Verification and delivery
   - [x] Run documentation link checks, `go test ./...`, Windows build, and firmware build.
   - [x] Stage only documentation task files, commit, push `main`, and watch the triggered workflow to success.
@@ -91,3 +100,5 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
 - 2026-08-30: GitHub Actions run `33335532130` concluded `success`; firmware job `99321638360` and windows-app job `99321638522` passed. The Windows job emitted a non-fatal setup-go cache warning after its tests, build, and artifact upload succeeded.
 - 2026-08-30: User requested that the video be embedded and featured as the README hero.
 - 2026-08-30: GitHub's Markdown API rendered a native HTML `<video>` block as an empty paragraph, confirming that README video tags are stripped. Selected an animated linked preview plus direct full-video call-to-action.
+- 2026-08-30: User added printable-case documentation and requested the case link near the top of the README.
+- 2026-08-30: Confirmed two STL models: `m5dial_shelf_case.stl` (10,972 faces) and `vl53l4cd_case.stl` (4,136 faces). Both have OpenSCAD, MATLAB, and Python drawing sources; MATLAB/Octave is not installed, while Matplotlib and trimesh are available.
