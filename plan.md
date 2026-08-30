@@ -14,6 +14,7 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
 - 2026-08-30: Approved installing `edge-tts` and sending only the narration text to Microsoft's neural speech service.
 - 2026-08-30: Feature the printable case STL files near the top of the main README.
 - 2026-08-30: Give each case its own README with MATLAB drawing sources and multi-angle images rendered from the STL.
+- 2026-08-30: Add official M5Stack Dial product photos and an official M5Stack product-page link to the main README.
 
 ## Verified facts
 
@@ -59,6 +60,11 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
   - [x] Render consistent front, rear, top, side, and isometric images from both STL meshes.
   - [x] Regenerate the MATLAB-style mechanical drawing images and verify every local case link.
   - Done: both case guides resolve their model, source, drawing, and multi-angle image links, and the main README links the case index above the fold.
+- [~] Official M5Dial hardware gallery
+  - [ ] Add official feature, rear-port, and angled-front M5Dial photos near the top of the README.
+  - [ ] Link every photo and the gallery call-to-action to M5Stack's official M5Dial documentation.
+  - [ ] Verify GitHub renders all three official CDN images and the official page returns HTTP 200.
+  - Done: the public README displays all three hardware photos and their links resolve to the official M5Stack M5Dial page.
 - [x] Verification and delivery
   - [x] Run documentation link checks, `go test ./...`, Windows build, and firmware build.
   - [x] Stage only documentation task files, commit, push `main`, and watch the triggered workflow to success.
@@ -111,3 +117,5 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
 - 2026-08-30: GitHub Actions run `33337069303` could not start because the public repository reported zero available self-hosted runners. Canceled the impossible queued run and changed the workflow to public-safe `windows-latest` and `ubuntu-latest` GitHub-hosted runners.
 - 2026-08-30: Commit `ba3204075f61f282fe048fe461b62681e2fc91a1` moved CI to GitHub-hosted runners for the public repository.
 - 2026-08-30: GitHub Actions run `33337271422` concluded `success`; windows-app job `99326318728` passed in 33 seconds and firmware job `99326318835` passed in 2 minutes 10 seconds.
+- 2026-08-30: User requested real M5Stack Dial photos and an official product-page link in the main README.
+- 2026-08-30: Verified M5Stack's official M5Dial documentation at `https://docs.m5stack.com/en/core/M5Dial` and inspected the feature overview, rear-port, and angled-front photos served by M5Stack's official static CDN.
