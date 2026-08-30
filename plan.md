@@ -121,3 +121,5 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
 - 2026-08-30: Verified M5Stack's official M5Dial documentation at `https://docs.m5stack.com/en/core/M5Dial` and inspected the feature overview, rear-port, and angled-front photos served by M5Stack's official static CDN.
 - 2026-08-30: Added a three-photo M5Dial hardware gallery near the top of `README.md`; each photo and the gallery call-to-action link to M5Stack's official M5Dial documentation.
 - 2026-08-30: M5Stack's product page and all three official CDN images returned HTTP 200. GitHub's Markdown API rendered the official link and exactly three M5Dial CDN images. `git diff --check` passed.
+- 2026-08-30: Commit `885c198f5b1124d535d7b92e41fbd388459b9cbc` published the official M5Dial hardware gallery.
+- 2026-08-30: GitHub Actions run `33338313471` concluded `success`; windows-app job `99329139838` passed in 38 seconds and firmware job `99329139749` passed in 2 minutes 23 seconds.
