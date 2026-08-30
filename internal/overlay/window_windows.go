@@ -1,9 +1,7 @@
 package overlay
 
 import (
-	"fmt"
 	"image"
-	"math"
 	"strings"
 
 	"github.com/JeremyProffittOrg/cli-controller/internal/win32"
@@ -147,45 +145,13 @@ func (o *Overlay) paintGraphical(hdc windows.Handle, rc win32.RECT) {
 	if !DrawTheme(hdc, o.theme, rc) {
 		win32.FillRect(hdc, &rc, o.bg)
 	}
-	cx := float64(w) * 0.32
-	cy := float64(h) * 0.52
-	outer := float64(h) * 0.22
 	n := len(o.items)
-
-	cyan := win32.CreatePen(3, win32.RGB(34, 211, 238))
-	redGlow := win32.CreatePen(11, win32.RGB(80, 7, 22))
-	red := win32.CreatePen(4, win32.RGB(255, 25, 62))
-	redFine := win32.CreatePen(2, win32.RGB(255, 78, 104))
-	panel := win32.CreateBrush(win32.RGB(6, 10, 18))
-	panelEdge := win32.CreateBrush(win32.RGB(34, 211, 238))
-	selectedPanel := win32.CreateBrush(win32.RGB(45, 8, 20))
-	selectedEdge := win32.CreateBrush(win32.RGB(255, 25, 62))
-	hub := win32.CreateBrush(win32.RGB(255, 25, 62))
-	oldPen := win32.SelectObject(hdc, cyan)
-	oldBr := win32.SelectObject(hdc, o.bg)
-
-	rot := KnobRotation(o.sel, n)
-	if n == 0 {
-		rot = 0
-	}
-	needleAngle := -math.Pi/2 + rot
-	nx, ny := Polar(cx, cy, outer, needleAngle)
-	hx, hy := Polar(cx, cy, 18, needleAngle+math.Pi)
-	win32.SelectObject(hdc, redGlow)
-	win32.MoveTo(hdc, int32(hx), int32(hy))
-	win32.LineTo(hdc, int32(nx), int32(ny))
-	win32.SelectObject(hdc, red)
-	win32.MoveTo(hdc, int32(hx), int32(hy))
-	win32.LineTo(hdc, int32(nx), int32(ny))
-	win32.SelectObject(hdc, hub)
-	win32.Ellipse(hdc, int32(cx-10), int32(cy-10), int32(cx+10), int32(cy+10))
-
 	const slots = 5
-	rightX := w * 52 / 100
-	rightEdge := w - int32(float64(w)*0.12)
+	rightX := w * 50 / 100
+	rightEdge := w - int32(float64(w)*0.11)
 	top := int32(float64(h) * 0.20)
 	bottom := int32(float64(h) * 0.80)
-	gap := int32(8)
+	gap := int32(6)
 	slotH := (bottom - top - gap*(slots-1)) / slots
 	start := VisibleStart(n, o.sel, slots)
 	for slot := 0; slot < slots; slot++ {
@@ -193,81 +159,30 @@ func (o *Overlay) paintGraphical(hdc windows.Handle, rc win32.RECT) {
 		box := win32.RECT{Left: rightX, Top: y, Right: rightEdge, Bottom: y + slotH}
 		idx := start + slot
 		selected := idx < n && idx == o.sel
-		if selected {
-			win32.FillRect(hdc, &box, selectedEdge)
-			inner := box
-			inner.Left += 3
-			inner.Top += 3
-			inner.Right -= 3
-			inner.Bottom -= 3
-			win32.FillRect(hdc, &inner, selectedPanel)
-		} else {
-			win32.FillRect(hdc, &box, panelEdge)
-			inner := box
-			inner.Left++
-			inner.Top++
-			inner.Right--
-			inner.Bottom--
-			win32.FillRect(hdc, &inner, panel)
+		DrawEmbedded(hdc, SlotFile(selected), box, true)
+		iconSize := slotH * 3 / 4
+		if iconSize < 28 {
+			iconSize = 28
 		}
-
-		number := win32.RECT{Left: box.Left + 10, Top: box.Top, Right: box.Left + 46, Bottom: box.Bottom}
-		win32.SelectObject(hdc, o.fontTech)
-		win32.SetTextColor(hdc, win32.RGB(34, 211, 238))
-		label := "--"
-		if idx < n {
-			label = fmt.Sprintf("%02d", idx+1)
-		}
-		win32.DrawText(hdc, label, &number, win32.DT_LEFT|win32.DT_VCENTER|win32.DT_SINGLELINE|win32.DT_NOPREFIX)
-
-		textBox := win32.RECT{Left: box.Left + 50, Top: box.Top, Right: box.Right - 12, Bottom: box.Bottom}
+		iconY := box.Top + (slotH-iconSize)/2
+		icon := win32.RECT{Left: box.Left + 12, Top: iconY, Right: box.Left + 12 + iconSize, Bottom: iconY + iconSize}
+		iconPath := "icons/empty.jpg"
 		itemText := "EMPTY SLOT"
 		if idx < n {
 			it := o.items[idx]
+			iconPath = IconFile(it.Brand, it.Title)
 			itemText = strings.TrimSpace(FormatRow(false, it.Brand, it.Title))
 		}
+		DrawEmbedded(hdc, iconPath, icon, true)
+		textBox := win32.RECT{Left: icon.Right + 8, Top: box.Top, Right: box.Right - 16, Bottom: box.Bottom}
 		if selected {
 			win32.SelectObject(hdc, o.fontSel)
 			win32.SetTextColor(hdc, win32.RGB(255, 255, 255))
 		} else {
 			win32.SelectObject(hdc, o.fontItem)
-			win32.SetTextColor(hdc, win32.RGB(186, 210, 224))
+			win32.SetTextColor(hdc, win32.RGB(210, 226, 236))
 		}
 		win32.DrawText(hdc, itemText, &textBox, win32.DT_LEFT|win32.DT_VCENTER|win32.DT_SINGLELINE|win32.DT_NOPREFIX|win32.DT_END_ELLIPSIS)
-
-		if selected {
-			arrowX := box.Left - 28
-			arrowY := (box.Top + box.Bottom) / 2
-			drawChevron(hdc, arrowX, arrowY, redGlow)
-			drawChevron(hdc, arrowX, arrowY, red)
-		}
-	}
-
-	readout := win32.RECT{Left: int32(cx - 70), Top: int32(cy + outer + 8), Right: int32(cx + 70), Bottom: int32(cy + outer + 32)}
-	win32.SelectObject(hdc, o.fontTech)
-	win32.SetTextColor(hdc, win32.RGB(226, 232, 240))
-	win32.DrawText(hdc, fmtIndex(o.sel, n), &readout, win32.DT_CENTER|win32.DT_VCENTER|win32.DT_SINGLELINE|win32.DT_NOPREFIX)
-
-	win32.SelectObject(hdc, oldPen)
-	win32.SelectObject(hdc, oldBr)
-	for _, obj := range []windows.Handle{cyan, redGlow, red, redFine, panel, panelEdge, selectedPanel, selectedEdge, hub} {
-		win32.DeleteObject(obj)
-	}
-}
-
-func fmtIndex(sel, n int) string {
-	if n <= 0 || sel < 0 || sel >= n {
-		return "--/--"
-	}
-	return fmt.Sprintf("%02d/%02d", sel+1, n)
-}
-
-func drawChevron(hdc windows.Handle, x, y int32, pen windows.Handle) {
-	win32.SelectObject(hdc, pen)
-	for offset := int32(0); offset < 18; offset += 9 {
-		win32.MoveTo(hdc, x+offset, y-15)
-		win32.LineTo(hdc, x+offset+14, y)
-		win32.LineTo(hdc, x+offset, y+15)
 	}
 }
 

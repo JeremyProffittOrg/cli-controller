@@ -19,6 +19,24 @@ func TestCatalogHasTwentyThemes(t *testing.T) {
 	}
 }
 
+func TestSlotAndIconImagesDecode(t *testing.T) {
+	paths := []string{
+		SlotFile(false), SlotFile(true),
+		IconFile("cmd", ""), IconFile("powershell", ""), IconFile("claude", ""),
+		IconFile("grok", ""), IconFile("antigravity", ""), IconFile("opencode", ""),
+		IconFile("codex", ""), IconFile("unknown", ""), IconFile("", "Settings"),
+		IconFile("", ""),
+	}
+	for _, p := range paths {
+		if EmbeddedImage(p) == nil {
+			t.Fatalf("missing %s", p)
+		}
+	}
+	if IconFile("", "Settings") != "icons/settings.jpg" {
+		t.Fatal("settings icon")
+	}
+}
+
 func TestThemeImagesDecode(t *testing.T) {
 	for _, th := range Catalog() {
 		im := ThemeImage(th.ID)

@@ -265,6 +265,7 @@ var (
 	modGdi32    = windows.NewLazySystemDLL("gdi32.dll")
 	modShell32  = windows.NewLazySystemDLL("shell32.dll")
 	modKernel32 = windows.NewLazySystemDLL("kernel32.dll")
+	modMsimg32  = windows.NewLazySystemDLL("msimg32.dll")
 
 	procRegisterClassExW     = modUser32.NewProc("RegisterClassExW")
 	procCreateWindowExW      = modUser32.NewProc("CreateWindowExW")
@@ -339,6 +340,7 @@ var (
 	procBitBlt               = modGdi32.NewProc("BitBlt")
 	procStretchBlt           = modGdi32.NewProc("StretchBlt")
 	procSetStretchBltMode    = modGdi32.NewProc("SetStretchBltMode")
+	procAlphaBlend           = modMsimg32.NewProc("AlphaBlend")
 	procDeleteDC             = modGdi32.NewProc("DeleteDC")
 	procCreateRoundRectRgn   = modGdi32.NewProc("CreateRoundRectRgn")
 	procCreateEllipticRgn    = modGdi32.NewProc("CreateEllipticRgn")
@@ -830,6 +832,13 @@ func StretchBlt(dst windows.Handle, dx, dy, dw, dh int32, src windows.Handle, sx
 
 func SetStretchBltMode(hdc windows.Handle, mode int) {
 	procSetStretchBltMode.Call(uintptr(hdc), uintptr(mode))
+}
+
+func AlphaBlend(dst windows.Handle, dx, dy, dw, dh int32, src windows.Handle, sw, sh int32) {
+	const acSrcOver = 0
+	const acSrcAlpha = 1
+	blend := uint32(acSrcOver) | uint32(0)<<8 | uint32(255)<<16 | uint32(acSrcAlpha)<<24
+	procAlphaBlend.Call(uintptr(dst), uintptr(dx), uintptr(dy), uintptr(dw), uintptr(dh), uintptr(src), 0, 0, uintptr(sw), uintptr(sh), uintptr(blend))
 }
 
 func DeleteDC(hdc windows.Handle) {

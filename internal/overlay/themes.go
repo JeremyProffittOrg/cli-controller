@@ -6,10 +6,11 @@ import (
 	"image"
 	"image/jpeg"
 	"image/png"
+	"strings"
 	"sync"
 )
 
-//go:embed themes/*
+//go:embed themes/* slots/* icons/*
 var themeFS embed.FS
 
 type Theme struct {
@@ -81,15 +82,9 @@ func ThemeImage(id string) image.Image {
 	themeOnce.Do(func() {
 		themeImgs = map[string]image.Image{}
 		for _, t := range Catalog() {
-			b, err := themeFS.ReadFile(t.File)
-			if err != nil {
-				continue
+			if im := EmbeddedImage(t.File); im != nil {
+				themeImgs[t.ID] = im
 			}
-			im, err := decodeTheme(b)
-			if err != nil {
-				continue
-			}
-			themeImgs[t.ID] = im
 		}
 	})
 	if im, ok := themeImgs[NormalizeTheme(id)]; ok {
@@ -99,6 +94,59 @@ func ThemeImage(id string) image.Image {
 		return im
 	}
 	return nil
+}
+
+var embedImgs sync.Map
+
+func EmbeddedImage(path string) image.Image {
+	if v, ok := embedImgs.Load(path); ok {
+		if im, ok := v.(image.Image); ok {
+			return im
+		}
+	}
+	b, err := themeFS.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	im, err := decodeTheme(b)
+	if err != nil {
+		return nil
+	}
+	embedImgs.Store(path, im)
+	return im
+}
+
+func SlotFile(selected bool) string {
+	if selected {
+		return "slots/selected.jpg"
+	}
+	return "slots/idle.jpg"
+}
+
+func IconFile(brand, title string) string {
+	if strings.EqualFold(strings.TrimSpace(title), "Settings") {
+		return "icons/settings.jpg"
+	}
+	switch strings.ToLower(strings.TrimSpace(brand)) {
+	case "cmd":
+		return "icons/cmd.jpg"
+	case "powershell":
+		return "icons/powershell.jpg"
+	case "claude":
+		return "icons/claude.jpg"
+	case "grok":
+		return "icons/grok.jpg"
+	case "antigravity":
+		return "icons/antigravity.jpg"
+	case "opencode":
+		return "icons/opencode.jpg"
+	case "codex":
+		return "icons/codex.jpg"
+	case "":
+		return "icons/empty.jpg"
+	default:
+		return "icons/unknown.jpg"
+	}
 }
 
 func decodeTheme(b []byte) (image.Image, error) {
