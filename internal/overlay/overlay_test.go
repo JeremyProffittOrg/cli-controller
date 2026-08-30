@@ -16,16 +16,16 @@ func TestRingAnglePutsSelectionAtTop(t *testing.T) {
 	}
 }
 
-func TestBoundsGraphicalIsRoundAndCentered(t *testing.T) {
+func TestBoundsGraphicalIsWideAndCentered(t *testing.T) {
 	work := image.Rect(0, 0, 1920, 1032)
 	b := BoundsGraphical(work)
-	if b.Dx() != GraphSize || b.Dy() != GraphSize {
+	if b.Dx() != GraphWidth || b.Dy() != GraphHeight {
 		t.Fatalf("size %v", b)
 	}
-	if b.Dx() != b.Dy() {
-		t.Fatalf("not square %v", b)
+	if b.Dx() <= b.Dy() {
+		t.Fatalf("not wider than dial %v", b)
 	}
-	if b.Min.X != (work.Dx()-GraphSize)/2 || b.Min.Y != (work.Dy()-GraphSize)/2 {
+	if b.Min.X != (work.Dx()-GraphWidth)/2 || b.Min.Y != (work.Dy()-GraphHeight)/2 {
 		t.Fatalf("not centered %v", b)
 	}
 }

@@ -142,13 +142,23 @@ func (o *Overlay) paintGraphical(hdc windows.Handle, rc win32.RECT) {
 	win32.SetBkMode(hdc, win32.TRANSPARENT)
 	w := rc.Right - rc.Left
 	h := rc.Bottom - rc.Top
-	if !DrawTheme(hdc, o.theme, rc) {
-		win32.FillRect(hdc, &rc, o.bg)
+	win32.FillRect(hdc, &rc, o.bg)
+	dial := h
+	if dial > w {
+		dial = w
+	}
+	themeBox := win32.RECT{Left: 0, Top: 0, Right: dial, Bottom: dial}
+	if !DrawTheme(hdc, o.theme, themeBox) {
+		win32.FillRect(hdc, &themeBox, o.bg)
 	}
 	n := len(o.items)
 	const slots = 5
-	rightX := w * 50 / 100
-	rightEdge := w - int32(float64(w)*0.11)
+	rightX := dial * 50 / 100
+	slotW := dial * 39 / 100 * 2
+	rightEdge := rightX + slotW
+	if rightEdge > w-16 {
+		rightEdge = w - 16
+	}
 	top := int32(float64(h) * 0.20)
 	bottom := int32(float64(h) * 0.80)
 	gap := int32(6)
@@ -198,7 +208,8 @@ func (o *Overlay) Show(work image.Rectangle, items []Item, sel int) {
 	b := BoundsFor(work, o.view)
 	var rgn windows.Handle
 	if o.view == ViewGraphical {
-		rgn = win32.CreateEllipticRgn(0, 0, int32(b.Dx()), int32(b.Dy()))
+		hh := int32(b.Dy())
+		rgn = win32.CreateRoundRectRgn(0, 0, int32(b.Dx()), hh, hh, hh)
 	} else {
 		rgn = win32.CreateRoundRectRgn(0, 0, int32(b.Dx()), int32(b.Dy()), 24, 24)
 	}

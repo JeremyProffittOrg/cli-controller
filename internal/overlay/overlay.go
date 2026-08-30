@@ -10,9 +10,10 @@ import (
 const (
 	Width         = 520
 	MaxHeight     = 720
-	GraphSize     = 760
-	GraphWidth    = GraphSize
-	GraphHeight   = GraphSize
+	GraphSize      = 760
+	GraphSlotExtra = GraphSize * 39 / 100
+	GraphWidth     = GraphSize + GraphSlotExtra
+	GraphHeight    = GraphSize
 	Margin        = 80
 	RowH          = 36
 	Pad           = 16
@@ -33,23 +34,23 @@ func BoundsFor(work image.Rectangle, view string) image.Rectangle {
 }
 
 func BoundsGraphical(work image.Rectangle) image.Rectangle {
-	side := GraphSize
-	if max := work.Dx() - Margin; max < side {
-		side = max
+	w := GraphWidth
+	h := GraphHeight
+	if max := work.Dx() - Margin; max < w {
+		w = max
 	}
-	if max := work.Dy() - Margin; max < side {
-		side = max
+	if max := work.Dy() - Margin; max < h {
+		h = max
 	}
-	if side < 480 {
-		if work.Dx() < work.Dy() {
-			side = work.Dx()
-		} else {
-			side = work.Dy()
-		}
+	if w < 480 {
+		w = work.Dx()
 	}
-	x := work.Min.X + (work.Dx()-side)/2
-	y := work.Min.Y + (work.Dy()-side)/2
-	return image.Rect(x, y, x+side, y+side)
+	if h < 480 {
+		h = work.Dy()
+	}
+	x := work.Min.X + (work.Dx()-w)/2
+	y := work.Min.Y + (work.Dy()-h)/2
+	return image.Rect(x, y, x+w, y+h)
 }
 
 func VisibleStart(n, sel, count int) int {
