@@ -16,14 +16,29 @@ func TestRingAnglePutsSelectionAtTop(t *testing.T) {
 	}
 }
 
-func TestBoundsGraphicalIsSquare(t *testing.T) {
+func TestBoundsGraphicalIsWideAndCentered(t *testing.T) {
 	work := image.Rect(0, 0, 1920, 1032)
 	b := BoundsGraphical(work)
-	if b.Dx() != b.Dy() {
-		t.Fatalf("not square %v", b)
+	if b.Dx() != GraphWidth || b.Dy() != GraphHeight {
+		t.Fatalf("size %v", b)
 	}
-	if b.Min.X < work.Min.X || b.Max.X > work.Max.X {
-		t.Fatalf("x %v", b)
+	if b.Min.X != (work.Dx()-GraphWidth)/2 || b.Min.Y != (work.Dy()-GraphHeight)/2 {
+		t.Fatalf("not centered %v", b)
+	}
+}
+
+func TestVisibleStartKeepsFiveContiguousItems(t *testing.T) {
+	if got := VisibleStart(9, 0, 5); got != 0 {
+		t.Fatalf("first %d", got)
+	}
+	if got := VisibleStart(9, 4, 5); got != 2 {
+		t.Fatalf("middle %d", got)
+	}
+	if got := VisibleStart(9, 8, 5); got != 4 {
+		t.Fatalf("last %d", got)
+	}
+	if got := VisibleStart(3, 2, 5); got != 0 {
+		t.Fatalf("short %d", got)
 	}
 }
 

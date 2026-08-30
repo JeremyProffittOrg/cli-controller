@@ -19,27 +19,74 @@ import (
 )
 
 type App struct {
-	cfg        config.Config
-	log        *log.Logger
-	host       windows.Handle
-	tray       *tray.Tray
-	overlay    *overlay.Overlay
-	settings   *settings.Dialog
-	ser        *serial.Manager
-	list       []wins.Window
-	sel        int
-	connected  bool
-	port       string
-	dwell      *time.Timer
-	mu         sync.Mutex
-	msgs       []protocol.DeviceMsg
-	conns      []connEv
-	mutex      windows.Handle
+	cfg       config.Config
+	log       *log.Logger
+	host      windows.Handle
+	tray      *tray.Tray
+	overlay   *overlay.Overlay
+	settings  *settings.Dialog
+	ser       *serial.Manager
+	list      []wins.Window
+	sel       int
+	connected bool
+	port      string
+	dwell     *time.Timer
+	mu        sync.Mutex
+	msgs      []protocol.DeviceMsg
+	conns     []connEv
+	mutex     windows.Handle
 }
 
 type connEv struct {
 	ok   bool
 	info serial.PortInfo
+}
+
+const SettingsItemTitle = "Settings"
+
+func DialItems(list []wins.Window) []overlay.Item {
+	out := make([]overlay.Item, 0, len(list)+1)
+	for _, w := range list {
+		out = append(out, overlay.Item{Brand: string(w.Brand), Title: w.Title})
+	}
+	return append(out, overlay.Item{Title: SettingsItemTitle})
+}
+
+func isSettingsSelection(sel, windowCount int) bool {
+	return sel == windowCount
+}
+
+func selectionAfterRefresh(old []wins.Window, sel int, next []wins.Window) int {
+	if isSettingsSelection(sel, len(old)) {
+		return len(next)
+	}
+	if sel >= 0 && sel < len(old) {
+		hwnd := old[sel].HWND
+		for i, w := range next {
+			if w.HWND == hwnd {
+				return i
+			}
+		}
+	}
+	if sel < 0 || sel >= len(next) {
+		return 0
+	}
+	return sel
+}
+
+func stateForSelection(list []wins.Window, sel int) (int, string, string) {
+	n := len(list) + 1
+	if isSettingsSelection(sel, len(list)) {
+		return n, "", SettingsItemTitle
+	}
+	if sel < 0 || sel >= len(list) {
+		return n, "", ""
+	}
+	brand := string(list[sel].Brand)
+	if brand == string(wins.BrandUnknown) {
+		brand = ""
+	}
+	return n, brand, list[sel].Title
 }
 
 var inst *App
@@ -228,34 +275,13 @@ func (a *App) handleMsg(m protocol.DeviceMsg) {
 }
 
 func (a *App) items() []overlay.Item {
-	out := make([]overlay.Item, len(a.list))
-	for i, w := range a.list {
-		out[i] = overlay.Item{Brand: string(w.Brand), Title: w.Title}
-	}
-	return out
+	return DialItems(a.list)
 }
 
 func (a *App) refresh() {
-	var old windows.Handle
-	if a.sel >= 0 && a.sel < len(a.list) {
-		old = a.list[a.sel].HWND
-	}
-	a.list = wins.Enumerate(a.cfg)
-	if old != 0 {
-		for i, w := range a.list {
-			if w.HWND == old {
-				a.sel = i
-				return
-			}
-		}
-	}
-	if len(a.list) == 0 {
-		a.sel = 0
-		return
-	}
-	if a.sel >= len(a.list) {
-		a.sel = 0
-	}
+	next := wins.Enumerate(a.cfg)
+	a.sel = selectionAfterRefresh(a.list, a.sel, next)
+	a.list = next
 }
 
 func (a *App) onEnc(delta int) {
@@ -263,7 +289,7 @@ func (a *App) onEnc(delta int) {
 		return
 	}
 	a.refresh()
-	a.sel = overlay.Step(len(a.list), a.sel, delta)
+	a.sel = overlay.Step(len(a.list)+1, a.sel, delta)
 	a.showOverlay()
 	a.resetDwell()
 	a.sendState()
@@ -290,6 +316,10 @@ func (a *App) activate() {
 	a.stopDwell()
 	a.refresh()
 	a.overlay.Hide()
+	if isSettingsSelection(a.sel, len(a.list)) {
+		a.openSettings()
+		return
+	}
 	if a.sel < 0 || a.sel >= len(a.list) {
 		return
 	}
@@ -319,16 +349,8 @@ func (a *App) sendState() {
 	if a.ser == nil {
 		return
 	}
-	n := len(a.list)
 	sel := a.sel
-	brand, title := "", ""
-	if n > 0 && sel >= 0 && sel < n {
-		brand = string(a.list[sel].Brand)
-		if brand == string(wins.BrandUnknown) {
-			brand = ""
-		}
-		title = a.list[sel].Title
-	}
+	n, brand, title := stateForSelection(a.list, sel)
 	b, err := protocol.StateRot(a.connected, n, sel, brand, title, a.cfg.DisplayRotation)
 	if err != nil {
 		return

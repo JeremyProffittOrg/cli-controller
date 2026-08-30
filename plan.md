@@ -25,6 +25,8 @@ Recorded 2026-08-29 from the operator.
 - No CGO. Build with `GOOS=windows GOARCH=amd64 CGO_ENABLED=0`.
 - Do not create Windows Task Scheduler tasks. The approved logon mechanism is a current-user Startup **shortcut** only.
 - 2026-08-30: Permanently repair arbitrary-angle Dial rendering; do not replace the saved 301-degree rotation with a cardinal-angle workaround.
+- 2026-08-30: Add `Settings` as the permanent last item in the dial-controlled overlay list; dwell or BtnA activation opens the existing Settings dialog.
+- 2026-08-30: Replace the desktop graphical overlay with a wide futuristic layout: circuit graphics and a dial on the left, five scrolling item slots on the right, and a vivid red arrow plus bold text for the selected item.
 
 ## Verified facts
 
@@ -291,6 +293,10 @@ Fixtures must include: `Command Prompt - agy` -> antigravity; `... - grok` -> gr
 
 - [x] overlay-layout — `go test ./internal/wins ./internal/overlay` exit 0
 
+### host-core / futuristic-graphical-overlay — Circuit dial and five-item selector
+
+- [x] futuristic-graphical-overlay — overlay tests confirm wide bounds and a five-row scrolling window; `cli-controller.exe -preview` renders the circuit dial, five right-side slots, vivid red selected arrow, and bold selected text without clipping on DISPLAY1.
+
 ### host-tray-settings — Tray, Settings, install
 
 depends on: host-core
@@ -302,6 +308,10 @@ depends on: host-core
 ### host-tray-settings / settings-window — Brand checkboxes + port combo persist to config.json
 
 - [x] settings-window — Save writes a file that `internal/config` loads with the same values (`go test ./internal/config` plus a focused settings persist test) exit 0
+
+### host-tray-settings / dial-settings-entry — Settings is the final dial item
+
+- [!] dial-settings-entry — focused app tests confirm `Settings` is last after all CLI windows, remains selected across refresh, appears in host state, and routes activation to the Settings dialog. Live dial activation is blocked because COM10 and every present VID_303A interface disappeared at 2026-08-30 05:33:57. Unblock: operator reconnects the physical Dial; the installed host is running and will retry automatically.
 
 ### host-tray-settings / install-scripts — install.ps1 / uninstall.ps1 / flash-dial.ps1
 
@@ -359,3 +369,8 @@ Do not idle: if upload waits, keep writing Go tests.
 - 2026-08-30 firmware `0.4.2` build: `pio run -d C:\dev\cli-controller\firmware` SUCCESS in 21.34 s; RAM 27,956 bytes, flash 584,239 bytes. First COM10 upload failed while Windows reconfigured the crash-looping device; after a 4 s settle, the bounded retry succeeded and verified all flash hashes.
 - 2026-08-30 regression after fix: `scripts/verify-dial-rotation.ps1 -Rotation 301 -ObserveSeconds 8 -ExpectedFirmware 0.4.2` exited 0 with `PANICS_AFTER_STATE=0`, `REBOOTS_AFTER_STATE=0`. `go test ./...` passed. Installed host process pid 24572 connected to COM10 after the check.
 - 2026-08-30 delivery: rebased the focused fix over remote runner migration `b2870af`, then pushed commit `9c5df20` to `main`. GitHub run `33303794700` initially queued because repo id `1350888419` was absent from selected runner groups `home-linux-private` (3) and `home-windows-private` (4). Added only `JeremyProffittOrg/cli-controller` to both groups; matching online runners accepted the existing jobs. Run completed `success`: windows-app 55 s, firmware 2m33s, both artifacts uploaded.
+- 2026-08-30 dial settings entry started from operator request: add `Settings` at the bottom of the dial list and use it to access the existing Settings dialog.
+- 2026-08-30 graphical overlay redesign added to the active scope: futuristic left circuit dial, five right-side scrolling slots, and red-arrow/bold selected state.
+- 2026-08-30 `go test ./...` passed after adding the virtual final `Settings` item, refresh-stable selection, Settings host state, 1040x600 graphical bounds, and five-slot viewport tests. `go build -ldflags="-H windowsgui"` passed.
+- 2026-08-30 visual QA: first preview found the old elliptical region clipped the new circuit header/footer. Replaced it with a high-contrast rounded rectangle and made preview use the real list with `Settings` selected. Second 1040x600 capture `artifacts/graphical-overlay-preview.png` showed five complete slots, circuit dial and traces, red double-chevron, bold `Settings`, and unclipped header/footer. Computer Use native pipe was unavailable after reset/retry, so the local screen-capture fallback supplied the render artifact.
+- 2026-08-30 `scripts/install.ps1` installed the verified exe and started pid 30724. Host log shows the physical Dial disconnected at 05:33:57; PresentOnly PnP and `SerialPort.GetPortNames()` show no COM10 and no VID_303A device, meeting stop condition 2 for live dial activation only.

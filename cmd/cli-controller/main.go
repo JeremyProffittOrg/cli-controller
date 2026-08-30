@@ -103,15 +103,10 @@ func runPreview() error {
 		return err
 	}
 	list := wins.Enumerate(cfg)
-	items := make([]overlay.Item, len(list))
-	for i, w := range list {
-		items[i] = overlay.Item{Brand: string(w.Brand), Title: w.Title}
-	}
+	items := app.DialItems(list)
 	sel := 0
-	if len(items) > 2 {
-		sel = 2
-	} else if len(items) > 1 {
-		sel = 1
+	if len(items) > 0 {
+		sel = len(items) - 1
 	}
 	ov.SetView(cfg.OverlayView)
 	ov.Show(wins.PrimaryWorkArea(), items, sel)

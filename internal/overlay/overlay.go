@@ -8,14 +8,15 @@ import (
 )
 
 const (
-	Width     = 520
-	MaxHeight = 720
-	GraphSide = 700
-	Margin    = 80
-	RowH      = 36
-	Pad       = 16
-	ViewClassic    = "classic"
-	ViewGraphical  = "graphical"
+	Width         = 520
+	MaxHeight     = 720
+	GraphWidth    = 1040
+	GraphHeight   = 600
+	Margin        = 80
+	RowH          = 36
+	Pad           = 16
+	ViewClassic   = "classic"
+	ViewGraphical = "graphical"
 )
 
 type Item struct {
@@ -31,25 +32,43 @@ func BoundsFor(work image.Rectangle, view string) image.Rectangle {
 }
 
 func BoundsGraphical(work image.Rectangle) image.Rectangle {
-	side := GraphSide
-	if max := work.Dx() - Margin; max < side {
-		side = max
+	w := GraphWidth
+	if max := work.Dx() - Margin; max < w {
+		w = max
 	}
-	if max := work.Dy() - Margin; max < side {
-		side = max
+	if w < 720 {
+		w = work.Dx()
 	}
-	if side < 480 {
-		side = work.Dx()
-		if work.Dy() < side {
-			side = work.Dy()
-		}
+	h := GraphHeight
+	if max := work.Dy() - Margin; max < h {
+		h = max
 	}
-	if side < 320 {
-		side = 320
+	if h < 480 {
+		h = work.Dy()
 	}
-	x := work.Min.X + (work.Dx()-side)/2
-	y := work.Min.Y + (work.Dy()-side)/2
-	return image.Rect(x, y, x+side, y+side)
+	x := work.Min.X + (work.Dx()-w)/2
+	y := work.Min.Y + (work.Dy()-h)/2
+	return image.Rect(x, y, x+w, y+h)
+}
+
+func VisibleStart(n, sel, count int) int {
+	if n <= count || count <= 0 {
+		return 0
+	}
+	if sel < 0 {
+		sel = 0
+	}
+	if sel >= n {
+		sel = n - 1
+	}
+	start := sel - count/2
+	if start < 0 {
+		return 0
+	}
+	if max := n - count; start > max {
+		return max
+	}
+	return start
 }
 
 func RingAngle(i, sel, n int) float64 {
