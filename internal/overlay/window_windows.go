@@ -15,6 +15,13 @@ type Overlay struct {
 	view     string
 	theme    string
 	shown    bool
+	box      image.Rectangle
+	laidView string
+	bufDC    windows.Handle
+	bufBmp   windows.Handle
+	bufOld   windows.Handle
+	bufW     int32
+	bufH     int32
 	bg       windows.Handle
 	selBr    windows.Handle
 	knobBr   windows.Handle
@@ -42,7 +49,7 @@ func New() (*Overlay, error) {
 		fontSel:  win32.CreateFont(-18, win32.FW_BOLD, "Bahnschrift"),
 		fontTech: win32.CreateFont(-13, win32.FW_BOLD, "Bahnschrift"),
 	}
-	if err := win32.RegisterClass("CLIDialOverlay", overlayCB, o.bg); err != nil {
+	if err := win32.RegisterClass("CLIDialOverlay", overlayCB, win32.NullBrush()); err != nil {
 		return nil, err
 	}
 	h, err := win32.CreateWindow(
@@ -69,6 +76,8 @@ func overlayProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 		return win32.DefWindowProc(h, msg, wParam, lParam)
 	}
 	switch msg {
+	case win32.WM_ERASEBKGND:
+		return 1
 	case win32.WM_PAINT:
 		overlayInst.paint(h)
 		return 0
@@ -89,17 +98,43 @@ func (o *Overlay) SetTheme(id string) {
 	o.theme = NormalizeTheme(id)
 }
 
+func (o *Overlay) ensureBuf(hdc windows.Handle, w, h int32) {
+	if o.bufBmp != 0 && o.bufW == w && o.bufH == h {
+		return
+	}
+	if o.bufDC != 0 {
+		win32.SelectObject(o.bufDC, o.bufOld)
+		win32.DeleteDC(o.bufDC)
+		o.bufDC = 0
+	}
+	if o.bufBmp != 0 {
+		win32.DeleteObject(o.bufBmp)
+		o.bufBmp = 0
+	}
+	o.bufDC = win32.CreateCompatibleDC(hdc)
+	o.bufBmp = win32.CreateCompatibleBitmap(hdc, w, h)
+	o.bufOld = win32.SelectObject(o.bufDC, o.bufBmp)
+	o.bufW, o.bufH = w, h
+}
+
 func (o *Overlay) paint(h windows.Handle) {
 	var ps win32.PAINTSTRUCT
 	hdc := win32.BeginPaint(h, &ps)
 	defer win32.EndPaint(h, &ps)
 	rc := win32.GetClientRect(h)
-	win32.FillRect(hdc, &rc, o.bg)
-	if o.view == ViewGraphical {
-		o.paintGraphical(hdc, rc)
+	w := rc.Right - rc.Left
+	ht := rc.Bottom - rc.Top
+	if w <= 0 || ht <= 0 {
 		return
 	}
-	o.paintClassic(hdc, rc)
+	o.ensureBuf(hdc, w, ht)
+	win32.FillRect(o.bufDC, &rc, o.bg)
+	if o.view == ViewGraphical {
+		o.paintGraphical(o.bufDC, rc)
+	} else {
+		o.paintClassic(o.bufDC, rc)
+	}
+	win32.BitBlt(hdc, 0, 0, w, ht, o.bufDC)
 }
 
 func (o *Overlay) paintClassic(hdc windows.Handle, rc win32.RECT) {
@@ -206,18 +241,23 @@ func (o *Overlay) Show(work image.Rectangle, items []Item, sel int) {
 		o.sel = len(o.items) - 1
 	}
 	b := BoundsFor(work, o.view)
-	var rgn windows.Handle
-	if o.view == ViewGraphical {
-		hh := int32(b.Dy())
-		rgn = win32.CreateRoundRectRgn(0, 0, int32(b.Dx()), hh, hh, hh)
-	} else {
-		rgn = win32.CreateRoundRectRgn(0, 0, int32(b.Dx()), int32(b.Dy()), 24, 24)
+	geom := !o.shown || o.box != b || o.laidView != o.view
+	if geom {
+		var rgn windows.Handle
+		if o.view == ViewGraphical {
+			hh := int32(b.Dy())
+			rgn = win32.CreateRoundRectRgn(0, 0, int32(b.Dx()), hh, hh, hh)
+		} else {
+			rgn = win32.CreateRoundRectRgn(0, 0, int32(b.Dx()), int32(b.Dy()), 24, 24)
+		}
+		win32.SetWindowPos(o.hwnd, win32.HWND_TOPMOST, int32(b.Min.X), int32(b.Min.Y), int32(b.Dx()), int32(b.Dy()), win32.SWP_NOACTIVATE|win32.SWP_SHOWWINDOW)
+		win32.SetWindowRgn(o.hwnd, rgn, false)
+		win32.ShowWindow(o.hwnd, win32.SW_SHOWNOACTIVATE)
+		o.box = b
+		o.laidView = o.view
 	}
-	win32.SetWindowPos(o.hwnd, win32.HWND_TOPMOST, int32(b.Min.X), int32(b.Min.Y), int32(b.Dx()), int32(b.Dy()), win32.SWP_NOACTIVATE|win32.SWP_SHOWWINDOW)
-	win32.SetWindowRgn(o.hwnd, rgn, true)
-	win32.ShowWindow(o.hwnd, win32.SW_SHOWNOACTIVATE)
 	o.shown = true
-	win32.Invalidate(o.hwnd)
+	win32.InvalidateNoErase(o.hwnd)
 }
 
 func (o *Overlay) Hide() {

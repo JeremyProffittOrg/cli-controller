@@ -288,7 +288,6 @@ func (a *App) onEnc(delta int) {
 	if !a.connected {
 		return
 	}
-	a.refresh()
 	a.sel = overlay.Step(len(a.list)+1, a.sel, delta)
 	a.showOverlay()
 	a.resetDwell()

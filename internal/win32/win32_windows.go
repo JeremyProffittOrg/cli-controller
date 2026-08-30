@@ -439,6 +439,10 @@ func Invalidate(h windows.Handle) {
 	procInvalidateRect.Call(uintptr(h), 0, 1)
 }
 
+func InvalidateNoErase(h windows.Handle) {
+	procInvalidateRect.Call(uintptr(h), 0, 0)
+}
+
 func Post(h windows.Handle, msg uint32, wParam, lParam uintptr) {
 	procPostMessageW.Call(uintptr(h), uintptr(msg), wParam, lParam)
 }
@@ -819,6 +823,11 @@ func ReleaseDC(hwnd, hdc windows.Handle) {
 
 func CreateCompatibleDC(hdc windows.Handle) windows.Handle {
 	r, _, _ := procCreateCompatibleDC.Call(uintptr(hdc))
+	return windows.Handle(r)
+}
+
+func CreateCompatibleBitmap(hdc windows.Handle, w, h int32) windows.Handle {
+	r, _, _ := procCreateCompatibleBitmap.Call(uintptr(hdc), uintptr(w), uintptr(h))
 	return windows.Handle(r)
 }
 
