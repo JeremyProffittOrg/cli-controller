@@ -449,7 +449,7 @@ go build -ldflags="-H windowsgui" -o cli-controller.exe ./cmd/cli-controller
 # Firmware build
 pio run -d firmware
 
-# Rebuild the narrated documentation video
+# Rebuild the narrated documentation video (requires edge-tts)
 powershell -NoProfile -File .\docs\video\build-how-to-video.ps1
 ```
 
@@ -538,4 +538,4 @@ Local builds are for verification and installation. Repository delivery is compl
 
 ## How-to video source
 
-The checked-in MP4 is generated from the real settings screenshots. Its source storyboard is in [`docs/video/storyboard.md`](docs/video/storyboard.md), and its reproducible Windows builder is [`docs/video/build-how-to-video.ps1`](docs/video/build-how-to-video.ps1). The script uses local Windows speech synthesis, System.Drawing, and FFmpeg; it does not add product or runtime dependencies.
+The checked-in MP4 is generated from the real settings screenshots. Its source storyboard is in [`docs/video/storyboard.md`](docs/video/storyboard.md), and its reproducible Windows builder is [`docs/video/build-how-to-video.ps1`](docs/video/build-how-to-video.ps1). The script uses Microsoft neural speech through `edge-tts`, System.Drawing, and FFmpeg; it does not add product or runtime dependencies. Install the builder-only voice tool with `python -m pip install --user edge-tts`. Video generation sends only the storyboard narration text to Microsoft's speech service.

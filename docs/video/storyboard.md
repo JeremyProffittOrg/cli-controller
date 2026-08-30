@@ -18,13 +18,13 @@ Narration: Spin the Dial to browse, stop to activate, or press for instant selec
 
 Visual: M5Dial Port A to PCA9548, then channels 0-3 to distance sensors and channel 4 to ADXL345.
 
-Narration: For motion control, connect Port A to a PCA9548 multiplexer. Distance sensors go on channels zero through three. The desk accelerometer goes on channel four. Disconnect USB power before changing cables.
+Narration: For motion control, connect Port A to a PCA ninety-five forty-eight multiplexer. Distance sensors go on channels zero through three. The desk accelerometer goes on channel four. Disconnect USB power before changing cables.
 
 ## Scene 4 - Controller setup
 
 Visual: real Controller settings screenshot with callouts for CLI selection, serial connection, and activation delay.
 
-Narration: On the Controller tab, choose which CLI families to manage. Automatic connection is the easiest start. The activation delay is shared by the physical Dial and knee gestures.
+Narration: On the Controller tab, choose which command-line families to manage. Automatic connection is the easiest start. The activation delay is shared by the physical Dial and knee gestures.
 
 ## Scene 5 - Make the display yours
 

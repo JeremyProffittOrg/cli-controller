@@ -40,10 +40,10 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
 - [x] User how-to video
   - [x] Build a narrated 1080p H.264/AAC MP4 with title, system overview, wiring, four settings tabs, gesture use, and closing guidance.
   - Done: `ffprobe` reports a playable 1920x1080 H.264 video with AAC audio and nonzero duration.
-- [~] Video quality correction
-  - [ ] Replace local System.Speech with an explicit Microsoft neural voice and normalized audio.
-  - [ ] Enlarge the circular badge and keep the full `CLI CONTROLLER` label inside it.
-  - [ ] Re-render, inspect every scene, and open the corrected video.
+- [x] Video quality correction
+  - [x] Replace local System.Speech with an explicit Microsoft neural voice and normalized audio.
+  - [x] Enlarge the circular badge and keep the full `CLI CONTROLLER` label inside it.
+  - [x] Re-render, inspect every scene, and open the corrected video.
   - Done: contact-sheet review shows the full badge, audio is present at a suitable level, and the user can view the corrected MP4.
 - [x] Verification and delivery
   - [x] Run documentation link checks, `go test ./...`, Windows build, and firmware build.
@@ -77,3 +77,8 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
 - 2026-08-30: Pushed `main`; GitHub Actions run `33335139734` concluded `success`. Firmware job `99320594914` and windows-app job `99320595056` both passed.
 - 2026-08-30: User rejected the local text-to-speech quality and reported that the circular `CLI CONTROLLER` label was clipped.
 - 2026-08-30: Installed approved `edge-tts` 7.2.8 for the current user and selected `en-US-BrianNeural` for the correction.
+- 2026-08-30: Replaced System.Speech with `en-US-BrianNeural` at +2% rate and FFmpeg loudness normalization targeting -16 LUFS and -1.5 dB peak.
+- 2026-08-30: Enlarged the cyan badge from 110 to 150 pixels and centered the complete two-line `CLI CONTROLLER` label inside it.
+- 2026-08-30: Re-rendered all eight scenes. Corrected MP4 is 112.435 seconds and 3,865,384 bytes; measured audio is -16.3 dB mean and -1.5 dB peak.
+- 2026-08-30: Contact-sheet and individual Desk/final-frame review confirmed the badge is fully readable. Opened the corrected MP4 in the default Windows player.
+- 2026-08-30: PowerShell parser, README local-link check, `git diff --check`, and media probes passed.

@@ -1,10 +1,11 @@
 param(
-    [string]$OutputPath = ""
+    [string]$OutputPath = "",
+    [string]$NeuralVoice = "en-US-BrianNeural",
+    [string]$NeuralRate = "+2%"
 )
 
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Drawing
-Add-Type -AssemblyName System.Speech
 
 $videoDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $docsDir = Split-Path -Parent $videoDir
@@ -15,7 +16,7 @@ if (-not $OutputPath) {
 }
 $OutputPath = [IO.Path]::GetFullPath($OutputPath)
 
-foreach ($tool in @("ffmpeg", "ffprobe")) {
+foreach ($tool in @("ffmpeg", "ffprobe", "edge-tts")) {
     if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
         throw "$tool is required"
     }
@@ -56,7 +57,7 @@ $scenes = @(
         Body = "Port A`nGPIO13 SDA / GPIO15 SCL`n`nPCA9548`nAddress 0x70`n`nPower off before rewiring."
         Diagram = "wiring"
         Screenshot = ""
-        Narration = "For motion control, connect Port A to a P C A ninety-five forty-eight multiplexer. Distance sensors go on channels zero through three. The desk accelerometer goes on channel four. Disconnect U S B power before changing cables."
+        Narration = "For motion control, connect Port A to a PCA ninety-five forty-eight multiplexer. Distance sensors go on channels zero through three. The desk accelerometer goes on channel four. Disconnect USB power before changing cables."
     },
     [pscustomobject]@{
         Title = "START ON CONTROLLER"
@@ -64,7 +65,7 @@ $scenes = @(
         Body = "1. Enable the CLI families you use.`n`n2. Start with automatic Dial discovery.`n`n3. Choose one activation delay for Dial and knees."
         Diagram = ""
         Screenshot = $screens.Controller
-        Narration = "On the Controller tab, choose which C L I families to manage. Automatic connection is the easiest start. The activation delay is shared by the physical Dial and knee gestures."
+        Narration = "On the Controller tab, choose which command-line families to manage. Automatic connection is the easiest start. The activation delay is shared by the physical Dial and knee gestures."
     },
     [pscustomobject]@{
         Title = "MAKE THE DISPLAY YOURS"
@@ -207,7 +208,7 @@ function New-Slide($scene, [int]$index, [int]$count, [string]$path) {
     $panelBrush.Dispose()
     $cyanBrush = New-Object Drawing.SolidBrush($colors.Cyan)
     $graphics.FillRectangle($cyanBrush, 0, 214, 1920, 6)
-    $graphics.FillEllipse($cyanBrush, 1710, 55, 110, 110)
+    $graphics.FillEllipse($cyanBrush, 1685, 35, 150, 150)
     $cyanBrush.Dispose()
     $violetBrush = New-Object Drawing.SolidBrush([Drawing.Color]::FromArgb(70, 167, 139, 250))
     $graphics.FillEllipse($violetBrush, 1780, 760, 320, 320)
@@ -216,10 +217,11 @@ function New-Slide($scene, [int]$index, [int]$count, [string]$path) {
     $titleFont = New-Font "Bahnschrift" 64 ([Drawing.FontStyle]::Bold)
     $kickerFont = New-Font "Segoe UI" 29 ([Drawing.FontStyle]::Regular)
     $bodyFont = New-Font "Segoe UI" 33 ([Drawing.FontStyle]::Regular)
-    $smallFont = New-Font "Bahnschrift" 22 ([Drawing.FontStyle]::Bold)
+    $smallFont = New-Font "Bahnschrift" 17 ([Drawing.FontStyle]::Bold)
     Draw-Text $graphics $scene.Title $titleFont $colors.Cyan 90 48 1500 85
     Draw-Text $graphics $scene.Kicker $kickerFont $colors.Muted 94 139 1500 55
-    Draw-Text $graphics ("CLI CONTROLLER  /  USER GUIDE  /  {0:D2}" -f ($index + 1)) $smallFont $colors.Background 1695 87 140 45 ([Drawing.StringAlignment]::Center)
+    Draw-Text $graphics "CLI`nCONTROLLER" $smallFont $colors.Background 1685 77 150 62 ([Drawing.StringAlignment]::Center)
+    Draw-Text $graphics ("SCENE {0:D2}" -f ($index + 1)) $smallFont $colors.Muted 1835 90 75 30 ([Drawing.StringAlignment]::Center)
 
     $bodyWidth = 700
     if (-not $scene.Screenshot -and -not $scene.Diagram) { $bodyWidth = 1700 }
@@ -264,42 +266,28 @@ if (-not $work.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase)) {
 New-Item -ItemType Directory -Path $work | Out-Null
 
 try {
-    $speaker = New-Object System.Speech.Synthesis.SpeechSynthesizer
-    try {
-        $preferred = @("Microsoft Zira Desktop", "Microsoft Zira")
-        $installed = @($speaker.GetInstalledVoices() | ForEach-Object { $_.VoiceInfo.Name })
-        foreach ($candidate in $preferred) {
-            if ($installed -contains $candidate) { $speaker.SelectVoice($candidate); break }
-        }
-        $speaker.Rate = 1
-        $speaker.Volume = 100
+    $segments = [Collections.Generic.List[string]]::new()
+    for ($i = 0; $i -lt $scenes.Count; $i++) {
+        $slide = Join-Path $work ("slide-{0:D2}.png" -f $i)
+        $audio = Join-Path $work ("audio-{0:D2}.mp3" -f $i)
+        $segment = Join-Path $work ("segment-{0:D2}.mp4" -f $i)
+        New-Slide $scenes[$i] $i $scenes.Count $slide
+        & edge-tts --voice $NeuralVoice "--rate=$NeuralRate" --text $scenes[$i].Narration --write-media $audio
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $audio)) { throw "neural narration failed for scene $i" }
 
-        $segments = [Collections.Generic.List[string]]::new()
-        for ($i = 0; $i -lt $scenes.Count; $i++) {
-            $slide = Join-Path $work ("slide-{0:D2}.png" -f $i)
-            $audio = Join-Path $work ("audio-{0:D2}.wav" -f $i)
-            $segment = Join-Path $work ("segment-{0:D2}.mp4" -f $i)
-            New-Slide $scenes[$i] $i $scenes.Count $slide
-            $speaker.SetOutputToWaveFile($audio)
-            $speaker.Speak($scenes[$i].Narration)
-            $speaker.SetOutputToNull()
-
-            $durationText = (& ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $audio).Trim()
-            $audioDuration = [double]::Parse($durationText, [Globalization.CultureInfo]::InvariantCulture)
-            $duration = $audioDuration + 0.8
-            $fadeOut = [Math]::Max(0.5, $duration - 0.45)
-            $audioFade = [Math]::Max(0.5, $audioDuration + 0.35)
-            $durationArg = $duration.ToString("0.000", [Globalization.CultureInfo]::InvariantCulture)
-            $fadeOutArg = $fadeOut.ToString("0.000", [Globalization.CultureInfo]::InvariantCulture)
-            $audioFadeArg = $audioFade.ToString("0.000", [Globalization.CultureInfo]::InvariantCulture)
-            $filter = "[0:v]zoompan=z='min(zoom+0.00018,1.025)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1920x1080:fps=30,fade=t=in:st=0:d=0.35,fade=t=out:st=${fadeOutArg}:d=0.45[v];[1:a]apad=pad_dur=0.8,afade=t=in:st=0:d=0.15,afade=t=out:st=${audioFadeArg}:d=0.4[a]"
-            & ffmpeg -hide_banner -loglevel error -y -loop 1 -i $slide -i $audio -filter_complex $filter -map "[v]" -map "[a]" -t $durationArg -c:v libx264 -preset medium -crf 20 -pix_fmt yuv420p -c:a aac -b:a 160k -ar 48000 -movflags +faststart $segment
-            if ($LASTEXITCODE -ne 0) { throw "ffmpeg failed for scene $i" }
-            $segments.Add($segment)
-            Write-Host ("rendered scene {0}/{1}" -f ($i + 1), $scenes.Count)
-        }
-    } finally {
-        $speaker.Dispose()
+        $durationText = (& ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $audio).Trim()
+        $audioDuration = [double]::Parse($durationText, [Globalization.CultureInfo]::InvariantCulture)
+        $duration = $audioDuration + 0.8
+        $fadeOut = [Math]::Max(0.5, $duration - 0.45)
+        $audioFade = [Math]::Max(0.5, $audioDuration + 0.35)
+        $durationArg = $duration.ToString("0.000", [Globalization.CultureInfo]::InvariantCulture)
+        $fadeOutArg = $fadeOut.ToString("0.000", [Globalization.CultureInfo]::InvariantCulture)
+        $audioFadeArg = $audioFade.ToString("0.000", [Globalization.CultureInfo]::InvariantCulture)
+        $filter = "[0:v]zoompan=z='min(zoom+0.00018,1.025)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1920x1080:fps=30,fade=t=in:st=0:d=0.35,fade=t=out:st=${fadeOutArg}:d=0.45[v];[1:a]loudnorm=I=-16:TP=-1.5:LRA=11,apad=pad_dur=0.8,afade=t=in:st=0:d=0.15,afade=t=out:st=${audioFadeArg}:d=0.4[a]"
+        & ffmpeg -hide_banner -loglevel error -y -loop 1 -i $slide -i $audio -filter_complex $filter -map "[v]" -map "[a]" -t $durationArg -c:v libx264 -preset medium -crf 20 -pix_fmt yuv420p -c:a aac -b:a 160k -ar 48000 -movflags +faststart $segment
+        if ($LASTEXITCODE -ne 0) { throw "ffmpeg failed for scene $i" }
+        $segments.Add($segment)
+        Write-Host ("rendered scene {0}/{1} with $NeuralVoice" -f ($i + 1), $scenes.Count)
     }
 
     $concat = Join-Path $work "concat.txt"
