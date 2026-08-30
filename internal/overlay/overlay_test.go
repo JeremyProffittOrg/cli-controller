@@ -6,6 +6,27 @@ import (
 	"testing"
 )
 
+func TestRingAnglePutsSelectionAtTop(t *testing.T) {
+	top := RingAngle(3, 3, 8)
+	if top > -1.57 || top < -1.58 {
+		t.Fatalf("sel at top got %v", top)
+	}
+	if RingAngle(0, 0, 1) > -1.57 || RingAngle(0, 0, 1) < -1.58 {
+		t.Fatalf("n=1 %v", RingAngle(0, 0, 1))
+	}
+}
+
+func TestBoundsGraphicalIsSquare(t *testing.T) {
+	work := image.Rect(0, 0, 1920, 1032)
+	b := BoundsGraphical(work)
+	if b.Dx() != b.Dy() {
+		t.Fatalf("not square %v", b)
+	}
+	if b.Min.X < work.Min.X || b.Max.X > work.Max.X {
+		t.Fatalf("x %v", b)
+	}
+}
+
 func TestBoundsCenteredOnPrimaryWork(t *testing.T) {
 	work := image.Rect(0, 0, 1920, 1032)
 	b := Bounds(work)

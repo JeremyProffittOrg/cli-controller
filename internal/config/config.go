@@ -9,11 +9,12 @@ import (
 type Brands map[string]bool
 
 type Config struct {
-	PortMode   string `json:"portMode"`
-	Port       string `json:"port"`
-	LastSerial string `json:"lastSerial"`
-	DwellMs    int    `json:"dwellMs"`
-	Brands     Brands `json:"brands"`
+	PortMode    string `json:"portMode"`
+	Port        string `json:"port"`
+	LastSerial  string `json:"lastSerial"`
+	DwellMs     int    `json:"dwellMs"`
+	OverlayView string `json:"overlayView"`
+	Brands      Brands `json:"brands"`
 }
 
 func BrandNames() []string {
@@ -30,11 +31,12 @@ func DefaultBrands() Brands {
 
 func Default() Config {
 	return Config{
-		PortMode:   "auto",
-		Port:       "",
-		LastSerial: "",
-		DwellMs:    2000,
-		Brands:     DefaultBrands(),
+		PortMode:    "auto",
+		Port:        "",
+		LastSerial:  "",
+		DwellMs:     2000,
+		OverlayView: "classic",
+		Brands:      DefaultBrands(),
 	}
 }
 
@@ -83,6 +85,9 @@ func (c *Config) Normalize() {
 	}
 	if c.DwellMs <= 0 {
 		c.DwellMs = 2000
+	}
+	if c.OverlayView != "graphical" {
+		c.OverlayView = "classic"
 	}
 	if c.Brands == nil {
 		c.Brands = DefaultBrands()

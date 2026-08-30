@@ -63,6 +63,7 @@ const (
 	NULL_BRUSH   = 5
 
 	DT_LEFT     = 0x0000
+	DT_CENTER   = 0x0001
 	DT_VCENTER  = 0x0004
 	DT_SINGLELINE = 0x0020
 	DT_NOPREFIX = 0x0800
@@ -328,6 +329,11 @@ var (
 	procBitBlt               = modGdi32.NewProc("BitBlt")
 	procDeleteDC             = modGdi32.NewProc("DeleteDC")
 	procCreateRoundRectRgn   = modGdi32.NewProc("CreateRoundRectRgn")
+	procCreateEllipticRgn    = modGdi32.NewProc("CreateEllipticRgn")
+	procEllipse              = modGdi32.NewProc("Ellipse")
+	procMoveToEx             = modGdi32.NewProc("MoveToEx")
+	procLineTo               = modGdi32.NewProc("LineTo")
+	procCreatePen            = modGdi32.NewProc("CreatePen")
 	procSetBkColor           = modGdi32.NewProc("SetBkColor")
 
 	procCreateIconIndirect   = modUser32.NewProc("CreateIconIndirect")
@@ -683,6 +689,28 @@ func DestroyMenu(m windows.Handle) {
 
 func CreateRoundRectRgn(x1, y1, x2, y2, w, h int32) windows.Handle {
 	r, _, _ := procCreateRoundRectRgn.Call(uintptr(x1), uintptr(y1), uintptr(x2), uintptr(y2), uintptr(w), uintptr(h))
+	return windows.Handle(r)
+}
+
+func CreateEllipticRgn(x1, y1, x2, y2 int32) windows.Handle {
+	r, _, _ := procCreateEllipticRgn.Call(uintptr(x1), uintptr(y1), uintptr(x2), uintptr(y2))
+	return windows.Handle(r)
+}
+
+func Ellipse(hdc windows.Handle, x1, y1, x2, y2 int32) {
+	procEllipse.Call(uintptr(hdc), uintptr(x1), uintptr(y1), uintptr(x2), uintptr(y2))
+}
+
+func MoveTo(hdc windows.Handle, x, y int32) {
+	procMoveToEx.Call(uintptr(hdc), uintptr(x), uintptr(y), 0)
+}
+
+func LineTo(hdc windows.Handle, x, y int32) {
+	procLineTo.Call(uintptr(hdc), uintptr(x), uintptr(y))
+}
+
+func CreatePen(width int32, rgb uint32) windows.Handle {
+	r, _, _ := procCreatePen.Call(0, uintptr(width), uintptr(rgb))
 	return windows.Handle(r)
 }
 

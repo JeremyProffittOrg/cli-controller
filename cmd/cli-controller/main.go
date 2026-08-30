@@ -113,6 +113,7 @@ func runPreview() error {
 	} else if len(items) > 1 {
 		sel = 1
 	}
+	ov.SetView(cfg.OverlayView)
 	ov.Show(wins.PrimaryWorkArea(), items, sel)
 	fmt.Printf("preview overlay items=%d sel=%d\n", len(items), sel)
 	deadline := time.Now().Add(15 * time.Second)

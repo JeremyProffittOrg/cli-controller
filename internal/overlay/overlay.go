@@ -2,6 +2,7 @@ package overlay
 
 import (
 	"image"
+	"math"
 	"strings"
 	"unicode/utf8"
 )
@@ -9,14 +10,64 @@ import (
 const (
 	Width     = 520
 	MaxHeight = 720
+	GraphSide = 700
 	Margin    = 80
 	RowH      = 36
 	Pad       = 16
+	ViewClassic    = "classic"
+	ViewGraphical  = "graphical"
 )
 
 type Item struct {
 	Brand string
 	Title string
+}
+
+func BoundsFor(work image.Rectangle, view string) image.Rectangle {
+	if view == ViewGraphical {
+		return BoundsGraphical(work)
+	}
+	return Bounds(work)
+}
+
+func BoundsGraphical(work image.Rectangle) image.Rectangle {
+	side := GraphSide
+	if max := work.Dx() - Margin; max < side {
+		side = max
+	}
+	if max := work.Dy() - Margin; max < side {
+		side = max
+	}
+	if side < 480 {
+		side = work.Dx()
+		if work.Dy() < side {
+			side = work.Dy()
+		}
+	}
+	if side < 320 {
+		side = 320
+	}
+	x := work.Min.X + (work.Dx()-side)/2
+	y := work.Min.Y + (work.Dy()-side)/2
+	return image.Rect(x, y, x+side, y+side)
+}
+
+func RingAngle(i, sel, n int) float64 {
+	if n <= 0 {
+		return 0
+	}
+	return -math.Pi/2 + float64(i-sel)*2*math.Pi/float64(n)
+}
+
+func KnobRotation(sel, n int) float64 {
+	if n <= 0 {
+		return 0
+	}
+	return float64(sel) * 2 * math.Pi / float64(n)
+}
+
+func Polar(cx, cy, r, ang float64) (int, int) {
+	return int(math.Round(cx + r*math.Cos(ang))), int(math.Round(cy + r*math.Sin(ang)))
 }
 
 func Bounds(work image.Rectangle) image.Rectangle {

@@ -143,7 +143,7 @@ func hostProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 		case 3:
 			if inst.overlay.Visible() {
 				inst.refresh()
-				inst.overlay.Show(wins.PrimaryWorkArea(), inst.items(), inst.sel)
+				inst.showOverlay()
 			}
 		}
 		return 0
@@ -264,9 +264,14 @@ func (a *App) onEnc(delta int) {
 	}
 	a.refresh()
 	a.sel = overlay.Step(len(a.list), a.sel, delta)
-	a.overlay.Show(wins.PrimaryWorkArea(), a.items(), a.sel)
+	a.showOverlay()
 	a.resetDwell()
 	a.sendState()
+}
+
+func (a *App) showOverlay() {
+	a.overlay.SetView(a.cfg.OverlayView)
+	a.overlay.Show(wins.PrimaryWorkArea(), a.items(), a.sel)
 }
 
 func (a *App) onTap(id string) {
