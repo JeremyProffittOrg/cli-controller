@@ -27,19 +27,19 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
 - [x] Plan
   - [x] Record the documentation and video scope before implementation.
   - Done: `git show --stat HEAD` contains only `plan.md`.
-- [ ] Documentation assets
-  - [ ] Copy the four verified settings screenshots into `docs/images`.
-  - [ ] Add a reproducible video storyboard and build script without changing product dependencies.
+- [x] Documentation assets
+  - [x] Copy the four verified settings screenshots into `docs/images`.
+  - [x] Add a reproducible video storyboard and build script without changing product dependencies.
   - Done: all local README image links resolve and the video builder exits 0.
-- [ ] Extensive README
-  - [ ] Document purpose, features, parts, wiring, setup, controls, knee modes, desk motion, settings tabs, architecture, protocol, configuration, development, troubleshooting, safety, and limitations.
-  - [ ] Use Mermaid for the wiring and runtime flow diagrams and real images for settings screens.
+- [x] Extensive README
+  - [x] Document purpose, features, parts, wiring, setup, controls, knee modes, desk motion, settings tabs, architecture, protocol, configuration, development, troubleshooting, safety, and limitations.
+  - [x] Use Mermaid for the wiring and runtime flow diagrams and real images for settings screens.
   - Done: `README.md` has no broken local links and contains all required sections and diagrams.
-- [ ] User how-to video
-  - [ ] Build a narrated 1080p H.264/AAC MP4 with title, system overview, wiring, four settings tabs, gesture use, and closing guidance.
+- [x] User how-to video
+  - [x] Build a narrated 1080p H.264/AAC MP4 with title, system overview, wiring, four settings tabs, gesture use, and closing guidance.
   - Done: `ffprobe` reports a playable 1920x1080 H.264 video with AAC audio and nonzero duration.
-- [ ] Verification and delivery
-  - [ ] Run documentation link checks, `go test ./...`, Windows build, and firmware build.
+- [~] Verification and delivery
+  - [x] Run documentation link checks, `go test ./...`, Windows build, and firmware build.
   - [ ] Stage only documentation task files, commit, push `main`, and watch the triggered workflow to success.
   - Done: local checks pass, `git diff --check` passes, and GitHub Actions concludes `success`.
 
@@ -59,3 +59,10 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
 - 2026-08-30: Read `deploy.md`, the workflow, firmware, configuration, motion engine, protocol, installation scripts, and preview entry points.
 - 2026-08-30: Confirmed FFmpeg 8.1.2, FFprobe, and all four screenshot sources.
 - 2026-08-30: Confirmed the pre-existing user-owned `case` work remains outside task scope.
+- 2026-08-30: Commit `a4d7d28` recorded only the documentation and video plan.
+- 2026-08-30: Copied four verified screenshots into `docs/images` and added `README.md`, `docs/video/storyboard.md`, and the reproducible video builder.
+- 2026-08-30: The first video render stopped on an FFmpeg filter timestamp parse error; the builder was fixed before retry.
+- 2026-08-30: The second render built `docs/cli-controller-how-to.mp4`: 105.506 seconds, 1920x1080, H.264 at 30 fps, AAC mono at 48 kHz, 3,178,064 bytes.
+- 2026-08-30: Visual contact-sheet review covered all eight scenes. Audio measured mean -20.7 dB and peak -2.3 dB.
+- 2026-08-30: README link check passed with six Mermaid diagrams and four screenshot links.
+- 2026-08-30: `go test ./...`, the Windows GUI build, and `pio run -d firmware` passed.
