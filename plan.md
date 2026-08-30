@@ -109,3 +109,5 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
 - 2026-08-30: Recursive documentation link checks, Python source checks, Git diff check, GIF probe, and watertight mesh checks passed. GitHub's Markdown API confirmed hero, MP4, and case links render above the first section.
 - 2026-08-30: Commit `9e6a77a6ef7f8de611e53c38fdaa5a14c9135a8f` published the README hero and printable case guides. The public page showed the hero and case link, and the MP4 returned HTTP 200.
 - 2026-08-30: GitHub Actions run `33337069303` could not start because the public repository reported zero available self-hosted runners. Canceled the impossible queued run and changed the workflow to public-safe `windows-latest` and `ubuntu-latest` GitHub-hosted runners.
+- 2026-08-30: Commit `ba3204075f61f282fe048fe461b62681e2fc91a1` moved CI to GitHub-hosted runners for the public repository.
+- 2026-08-30: GitHub Actions run `33337271422` concluded `success`; windows-app job `99326318728` passed in 33 seconds and firmware job `99326318835` passed in 2 minutes 10 seconds.
