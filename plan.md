@@ -107,3 +107,5 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
 - 2026-08-30: Added `case/render_stl_views.py` and generated seven consistent STL views per model. Corrected the print-oriented VL53L4CD mesh by rotating height from Y into documentation Z before rendering.
 - 2026-08-30: Regenerated both MATLAB-style drawing sheets from the matching dimensional parameters. Native `.m` sources remain checked in for MATLAB export.
 - 2026-08-30: Recursive documentation link checks, Python source checks, Git diff check, GIF probe, and watertight mesh checks passed. GitHub's Markdown API confirmed hero, MP4, and case links render above the first section.
+- 2026-08-30: Commit `9e6a77a6ef7f8de611e53c38fdaa5a14c9135a8f` published the README hero and printable case guides. The public page showed the hero and case link, and the MP4 returned HTTP 200.
+- 2026-08-30: GitHub Actions run `33337069303` could not start because the public repository reported zero available self-hosted runners. Canceled the impossible queued run and changed the workflow to public-safe `windows-latest` and `ubuntu-latest` GitHub-hosted runners.
