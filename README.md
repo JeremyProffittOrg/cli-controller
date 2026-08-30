@@ -11,7 +11,7 @@
 <p align="center">
   <strong><a href="docs/cli-controller-how-to.mp4">▶ Watch the full narrated user guide</a></strong>
   &nbsp;·&nbsp;
-  <strong><a href="case/README.md">⬡ Download and print the M5Dial and sensor cases</a></strong>
+  <strong><a href="case/README.md">⬡ Download and print the M5Dial, sensor, and mux cases</a></strong>
 </p>
 
 CLI Controller turns an M5Stack Dial into a physical control surface for command-line windows on Windows. Rotate the Dial to choose a CLI window. Press to focus it. Tap the screen to tile or stack all supported CLI windows. Optional knee-distance sensors and a desk-motion sensor add hands-free controls.
@@ -97,6 +97,38 @@ flowchart LR
 | as needed | STEMMA QT/Qwiic or compatible I2C cables | - | - | Connects the mux and sensors |
 
 Channels 5-7 are reserved and unused. A channel number identifies a VL53L4CD; the firmware does not change the sensor's `0x29` address.
+
+## Printable cases
+
+Every case is a watertight STL with its parametric OpenSCAD source, a MATLAB drawing source, a checked-in drawing sheet, and STL renders from several angles. Full dimensions, print orientation, and model checks are in each guide.
+
+<p align="center">
+  <a href="case/README-m5dial-shelf-case.md">
+    <img src="case/m5dial_shelf_case_iso.png" width="31%" alt="M5Stack Dial under-shelf case, isometric STL render">
+  </a>
+  <a href="case/README-vl53l4cd-case.md">
+    <img src="case/vl53l4cd_case_stl_iso.png" width="31%" alt="Adafruit VL53L4CD sensor case, isometric STL render">
+  </a>
+  <a href="case/README-pca9548-case.md">
+    <img src="case/pca9548_case_tall_iso.png" width="31%" alt="Adafruit PCA9548 I2C multiplexer case, isometric STL render">
+  </a>
+</p>
+
+| Case | Fits | Print mesh | Guide |
+|---|---|---|---|
+| M5Dial under-shelf case | M5Stack Dial, mounted under a desk shelf | [`m5dial_shelf_case.stl`](case/m5dial_shelf_case.stl) | [Open the guide](case/README-m5dial-shelf-case.md) |
+| VL53L4CD sensor case | Adafruit VL53L4CD knee sensor, product 5396 | [`vl53l4cd_case.stl`](case/vl53l4cd_case.stl) · [`vl53l4cd_case.3mf`](case/vl53l4cd_case.3mf) | [Open the guide](case/README-vl53l4cd-case.md) |
+| PCA9548 mux case, std 12 mm | Adafruit PCA9548 8-channel mux, product 5626 | [`pca9548_case_std.stl`](case/pca9548_case_std.stl) | [Open the guide](case/README-pca9548-case.md) |
+| PCA9548 mux case, tall 24 mm | The same board, with room above it for cable slack | [`pca9548_case_tall.stl`](case/pca9548_case_tall.stl) | [Open the guide](case/README-pca9548-case.md) |
+
+The PCA9548 case is an open-top tray with a 3.50 mm gap around the board, four M2 standoffs, eight 3 x 3 mm cable exits notched down from the rim on the real JST SH channel-port centres, and a 10 mm mounting tab with a 4 mm hole on each short end. Both heights come from one source file:
+
+```powershell
+& 'C:\Program Files\OpenSCAD\openscad.com' -o case\pca9548_case_std.stl  -D 'variant="std"'  case\pca9548_case.scad
+& 'C:\Program Files\OpenSCAD\openscad.com' -o case\pca9548_case_tall.stl -D 'variant="tall"' case\pca9548_case.scad
+```
+
+See [`case/README.md`](case/README.md) for the full source and artifact map.
 
 ## Wiring diagram
 
