@@ -57,6 +57,16 @@ func TestEncodeHostRoundTrip(t *testing.T) {
 	if !bytes.Contains(r, []byte(`"rot":180`)) {
 		t.Fatalf("rot %s", r)
 	}
+	g, err := StateRot(true, 1, 0, "grok", "t", 315)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(g, []byte(`"rot":315`)) {
+		t.Fatalf("315 %s", g)
+	}
+	if NormalizeDeg(-45) != 315 || NormalizeDeg(360) != 0 {
+		t.Fatalf("norm %d %d", NormalizeDeg(-45), NormalizeDeg(360))
+	}
 	h, err := HelloHost()
 	if err != nil {
 		t.Fatal(err)

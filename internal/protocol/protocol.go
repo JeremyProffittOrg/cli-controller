@@ -97,12 +97,11 @@ func StateRot(link bool, n, sel int, brand, title string, rot int) ([]byte, erro
 }
 
 func NormalizeDeg(deg int) int {
-	switch deg {
-	case 90, 180, 270:
-		return deg
-	default:
-		return 0
+	deg %= 360
+	if deg < 0 {
+		deg += 360
 	}
+	return deg
 }
 
 func truncate(s string, n int) string {

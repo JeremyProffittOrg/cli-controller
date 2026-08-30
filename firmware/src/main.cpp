@@ -1,7 +1,8 @@
 #include <M5Dial.h>
 #include <cstring>
+#include <math.h>
 
-static const char *kFw = "0.3.0";
+static const char *kFw = "0.4.0";
 static const uint32_t kHostTimeoutMs = 3000;
 static const uint32_t kOverlayHoldMs = 2500;
 static const int kDetentPulses = 4;
@@ -19,7 +20,9 @@ static String lineBuf;
 static bool hostLink = false;
 static bool dirty = true;
 static const char *pending = nullptr;
-static int dispRot = 0;
+static int rotDeg = 0;
+static M5Canvas canvas(&M5Dial.Display);
+static bool haveCanvas = false;
 
 static uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b) {
   return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
@@ -96,23 +99,37 @@ static int jsonInt(const String &line, const char *key, int def) {
   return line.substring(start + needle.length()).toInt();
 }
 
-static void applyRotation(int deg) {
-  int r = 0;
-  if (deg == 90) {
-    r = 1;
-  } else if (deg == 180) {
-    r = 2;
-  } else if (deg == 270) {
-    r = 3;
+static int wrapDeg(int deg) {
+  deg %= 360;
+  if (deg < 0) {
+    deg += 360;
   }
-  if (r == (int)M5Dial.Display.getRotation()) {
-    dispRot = r;
+  return deg;
+}
+
+static void applyRotation(int deg) {
+  deg = wrapDeg(deg);
+  if (deg == rotDeg) {
     return;
   }
-  dispRot = r;
-  M5Dial.Display.setRotation(r);
+  rotDeg = deg;
   dirty = true;
   drawn = (Screen)-1;
+}
+
+static void mapTouch(int px, int py, int *ox, int *oy) {
+  if (rotDeg == 0) {
+    *ox = px;
+    *oy = py;
+    return;
+  }
+  float th = -rotDeg * 0.01745329252f;
+  float c = cosf(th);
+  float s = sinf(th);
+  float dx = (float)(px - 120);
+  float dy = (float)(py - 120);
+  *ox = (int)lroundf(120.0f + dx * c - dy * s);
+  *oy = (int)lroundf(120.0f + dx * s + dy * c);
 }
 
 static void click() { M5Dial.Speaker.tone(4000, 20); }
@@ -135,16 +152,20 @@ static bool inStack(int x, int y) {
   return inFace(x, y) && x >= 120 && y < 148;
 }
 
+static M5Canvas &face() { return canvas; }
+
 static void drawWaiting() {
-  M5Dial.Display.fillScreen(COL_BG);
-  M5Dial.Display.setTextDatum(middle_center);
-  M5Dial.Display.setTextColor(COL_MUTED, COL_BG);
-  M5Dial.Display.setTextSize(2);
-  M5Dial.Display.drawString("Waiting", 120, 120);
+  auto &d = face();
+  d.fillScreen(COL_BG);
+  d.setTextDatum(middle_center);
+  d.setTextColor(COL_MUTED, COL_BG);
+  d.setTextSize(2);
+  d.drawString("Waiting", 120, 120);
 }
 
 static void drawIdle() {
-  M5Dial.Display.fillScreen(COL_BG);
+  auto &d = face();
+  d.fillScreen(COL_BG);
   int tileY = pending ? 42 : 70;
   int tileH = pending ? 86 : 100;
   uint16_t tileFill = COL_PANEL;
@@ -159,33 +180,34 @@ static void drawIdle() {
     stackFill = rgb565(6, 78, 59);
     stackEdge = COL_OK;
   }
-  M5Dial.Display.fillRoundRect(18, tileY, 95, tileH, 16, tileFill);
-  M5Dial.Display.fillRoundRect(127, tileY, 95, tileH, 16, stackFill);
-  M5Dial.Display.drawRoundRect(18, tileY, 95, tileH, 16, tileEdge);
-  M5Dial.Display.drawRoundRect(127, tileY, 95, tileH, 16, stackEdge);
-  M5Dial.Display.setTextDatum(middle_center);
-  M5Dial.Display.setTextSize(2);
-  M5Dial.Display.setTextColor(COL_TILE, tileFill);
-  M5Dial.Display.drawString("TILE", 65, tileY + tileH / 2);
-  M5Dial.Display.setTextColor(COL_STACK, stackFill);
-  M5Dial.Display.drawString("STACK", 174, tileY + tileH / 2);
+  d.fillRoundRect(18, tileY, 95, tileH, 16, tileFill);
+  d.fillRoundRect(127, tileY, 95, tileH, 16, stackFill);
+  d.drawRoundRect(18, tileY, 95, tileH, 16, tileEdge);
+  d.drawRoundRect(127, tileY, 95, tileH, 16, stackEdge);
+  d.setTextDatum(middle_center);
+  d.setTextSize(2);
+  d.setTextColor(COL_TILE, tileFill);
+  d.drawString("TILE", 65, tileY + tileH / 2);
+  d.setTextColor(COL_STACK, stackFill);
+  d.drawString("STACK", 174, tileY + tileH / 2);
   if (pending) {
-    M5Dial.Display.fillRoundRect(70, 158, 100, 46, 14, COL_OK_BG);
-    M5Dial.Display.drawRoundRect(70, 158, 100, 46, 14, COL_OK);
-    M5Dial.Display.setTextColor(COL_OK, COL_OK_BG);
-    M5Dial.Display.drawString("OK", 120, 181);
+    d.fillRoundRect(70, 158, 100, 46, 14, COL_OK_BG);
+    d.drawRoundRect(70, 158, 100, 46, 14, COL_OK);
+    d.setTextColor(COL_OK, COL_OK_BG);
+    d.drawString("OK", 120, 181);
   }
 }
 
 static void drawOverlay() {
-  M5Dial.Display.fillScreen(COL_BG);
-  M5Dial.Display.setTextDatum(middle_center);
-  M5Dial.Display.setTextSize(2);
-  M5Dial.Display.setTextColor(COL_TILE, COL_BG);
+  auto &d = face();
+  d.fillScreen(COL_BG);
+  d.setTextDatum(middle_center);
+  d.setTextSize(2);
+  d.setTextColor(COL_TILE, COL_BG);
   String brand = overlayBrand.length() ? overlayBrand : "-";
-  M5Dial.Display.drawString(brand, 120, 88);
-  M5Dial.Display.setTextSize(1);
-  M5Dial.Display.setTextColor(COL_TEXT, COL_BG);
+  d.drawString(brand, 120, 88);
+  d.setTextSize(1);
+  d.setTextColor(COL_TEXT, COL_BG);
   String title = overlayTitle;
   if (!title.length()) {
     title = "No matching CLI windows";
@@ -193,7 +215,7 @@ static void drawOverlay() {
   if (title.length() > 28) {
     title = title.substring(0, 27) + ".";
   }
-  M5Dial.Display.drawString(title, 120, 140);
+  d.drawString(title, 120, 140);
 }
 
 static void paint() {
@@ -213,6 +235,13 @@ static void paint() {
   }
   drawn = screen;
   dirty = false;
+  if (haveCanvas) {
+    M5Dial.Display.startWrite();
+    M5Dial.Display.fillScreen(COL_BG);
+    canvas.setPivot(120, 120);
+    canvas.pushRotateZoom(120, 120, (float)rotDeg, 1.0f, 1.0f);
+    M5Dial.Display.endWrite();
+  }
 }
 
 static void handleHostLine(const String &line) {
@@ -266,6 +295,15 @@ void setup() {
     delay(10);
   }
   M5Dial.Display.setRotation(0);
+  canvas.setColorDepth(16);
+  haveCanvas = canvas.createSprite(240, 240);
+  if (!haveCanvas) {
+    canvas.setColorDepth(8);
+    haveCanvas = canvas.createSprite(240, 240);
+  }
+  if (haveCanvas) {
+    canvas.setPivot(120, 120);
+  }
   encPos = M5Dial.Encoder.read();
   sendHello();
   lastHostMs = 0;
@@ -317,16 +355,19 @@ void loop() {
 
   auto t = M5Dial.Touch.getDetail();
   if (t.wasClicked() && hostLink && screen != SCREEN_OVERLAY) {
-    if (inOK(t.x, t.y)) {
+    int lx = t.x;
+    int ly = t.y;
+    mapTouch(t.x, t.y, &lx, &ly);
+    if (inOK(lx, ly)) {
       click();
       sendTap(pending);
       pending = nullptr;
       dirty = true;
-    } else if (inTile(t.x, t.y)) {
+    } else if (inTile(lx, ly)) {
       click();
       pending = "tile";
       dirty = true;
-    } else if (inStack(t.x, t.y)) {
+    } else if (inStack(lx, ly)) {
       click();
       pending = "stack";
       dirty = true;

@@ -29,7 +29,10 @@ const (
 	WM_COMMAND       = 0x0111
 	WM_TIMER         = 0x0113
 	WM_RBUTTONUP     = 0x0205
+	WM_LBUTTONDOWN   = 0x0201
 	WM_LBUTTONUP     = 0x0202
+	WM_MOUSEMOVE     = 0x0200
+	MK_LBUTTON       = 0x0001
 	WM_CONTEXTMENU   = 0x007B
 	WM_APP           = 0x8000
 	WM_USER          = 0x0400
@@ -343,6 +346,8 @@ var (
 	procGetModuleHandleW     = modKernel32.NewProc("GetModuleHandleW")
 	procGetCurrentThreadId   = modKernel32.NewProc("GetCurrentThreadId")
 	procFreeConsole          = modKernel32.NewProc("FreeConsole")
+	procSetCapture           = modUser32.NewProc("SetCapture")
+	procReleaseCapture       = modUser32.NewProc("ReleaseCapture")
 )
 
 func LOWORD(v uintptr) uint16 { return uint16(v & 0xFFFF) }
@@ -590,6 +595,18 @@ func GetCurrentThreadId() uint32 {
 
 func FreeConsole() {
 	procFreeConsole.Call()
+}
+
+func SetCapture(h windows.Handle) {
+	procSetCapture.Call(uintptr(h))
+}
+
+func ReleaseCapture() {
+	procReleaseCapture.Call()
+}
+
+func MouseXY(lParam uintptr) (int32, int32) {
+	return int32(int16(lParam & 0xFFFF)), int32(int16((lParam >> 16) & 0xFFFF))
 }
 
 func GetSystemMetrics(idx int) int {

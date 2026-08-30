@@ -91,10 +91,9 @@ func (c *Config) Normalize() {
 	if c.OverlayView != "graphical" {
 		c.OverlayView = "classic"
 	}
-	switch c.DisplayRotation {
-	case 90, 180, 270:
-	default:
-		c.DisplayRotation = 0
+	c.DisplayRotation %= 360
+	if c.DisplayRotation < 0 {
+		c.DisplayRotation += 360
 	}
 	if c.Brands == nil {
 		c.Brands = DefaultBrands()
