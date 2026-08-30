@@ -24,6 +24,7 @@ cable_slot_h  = 8.0;
 ped_t         = 3.0;
 ped_hole_d    = 8.2;
 ped_splay     = 15;
+ped_down      = 30;           // tilt below the rear axis
 ped_span      = 14.0;
 ped_w         = 34.0;
 ped_h         = 18.0;
@@ -48,6 +49,9 @@ inner_h   = inner_top - wall;
 cable_z   = inner_top - 3.0 - cable_slot_h / 2;
 hw        = width / 2;
 c2s       = bottom_chamfer2 / sqrt(2);
+top_open_w    = 0.5 * width;  // 50 % of width, centered
+top_open_d    = 0.8 * depth;  // 80 % of depth, centered
+top_open_cr   = 4.0;          // corner radius of the top hatch
 
 preview = false;
 cutaway = false;
@@ -59,9 +63,6 @@ module round_r()
 module outer_shrunk() {
     translate([-width / 2 + edge_r, edge_r, edge_r])
         cube([width - 2 * edge_r, depth - 2 * edge_r, height - 2 * edge_r]);
-    // Pedestal overlaps the shrunk back face so the union is one solid.
-    translate([-ped_w / 2 + edge_r, depth - edge_r - 0.5, center_z - ped_h / 2 + edge_r])
-        cube([ped_w - 2 * edge_r, ped_t + 0.5, ped_h - 2 * edge_r]);
 }
 
 module inner_shrunk() {
@@ -129,7 +130,7 @@ module chamfer_2d() {
 // grow > 0 offsets the cut so an inner cavity keeps `grow` mm of wall.
 module chamfer_cuts(grow = 0) {
     y0 = -2 - edge_r;
-    len = depth + ped_t + 8 + 2 * edge_r;
+    len = depth + 8 + 2 * edge_r;
     minkowski() {
         rotate([90, 0, 0])
             translate([0, 0, -y0 - len])
@@ -194,13 +195,35 @@ module cable_slot() {
             filleted_slot(cable_slot_w, cable_slot_h, wall + 4);
 }
 
-module pedestal_holes() {
+module rounded_rect_cut(w, d, h, cr) {
+    minkowski() {
+        hull() {
+            for (sx = [-1, 1], sy = [-1, 1])
+                translate([sx * (w / 2 - cr), sy * (d / 2 - cr), 0])
+                    cylinder(r = max(cr - edge_r, 0.2), h = max(h, 0.2));
+        }
+        round_r();
+    }
+}
+
+module top_opening() {
+    translate([0, depth / 2, inner_top - 2])
+        rounded_rect_cut(top_open_w, top_open_d, top_t + 8, top_open_cr);
+}
+
+// Internal pad on the inner back face. Outer face is flush with the rear wall.
+module led_housing() {
+    translate([-ped_w / 2, depth - wall - ped_t, center_z - ped_h / 2])
+        cube([ped_w, wall + ped_t + 1, ped_h]);
+}
+
+module led_holes() {
     for (side = [-1, 1]) {
         a = side * ped_splay;
-        translate([side * ped_span / 2, depth + ped_t / 2, center_z])
+        translate([side * ped_span / 2, depth, center_z])
             rotate([0, 0, a])
-                rotate([-90, 0, 0])
-                    filleted_cyl(ped_hole_d, ped_t + wall + 8, center = true);
+                rotate([-90 - ped_down, 0, 0])
+                    filleted_cyl(ped_hole_d, wall + ped_t + 12, center = true);
     }
 }
 
@@ -214,7 +237,10 @@ module case_solid() {
             // Bosses live in the cavity, trimmed to the outer (chamfered) skin
             // so they share the 3 mm side wall instead of adding extra OD.
             intersection() {
-                screw_bosses();
+                union() {
+                    screw_bosses();
+                    led_housing();
+                }
                 outer_solid();
             }
         }
@@ -222,7 +248,8 @@ module case_solid() {
         screw_head_bores();
         screw_top_holes();
         cable_slot();
-        pedestal_holes();
+        led_holes();
+        top_opening();
     }
 }
 
@@ -238,7 +265,7 @@ module dial_ghost() {
 
 module cutaway_half() {
     translate([0, -5, -5])
-        cube([width, depth + ped_t + 10, height + 10]);
+        cube([width, depth + 10, height + 10]);
 }
 
 if (cutaway) {

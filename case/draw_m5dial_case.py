@@ -27,6 +27,7 @@ CABLE_SLOT_H = 8.0
 PED_T = 3.0
 PED_HOLE_D = 8.2
 PED_SPLAY = 15.0
+PED_DOWN = 30.0
 PED_SPAN = 14.0
 PED_W = 34.0
 PED_H = 18.0
@@ -43,6 +44,9 @@ HEIGHT = INNER_TOP + TOP_T
 CABLE_Z = INNER_TOP - 3.0 - CABLE_SLOT_H / 2
 HW = WIDTH / 2
 C2S = BOTTOM_CHAMFER2 / np.sqrt(2)
+TOP_OPEN_W = 0.5 * WIDTH
+TOP_OPEN_D = 0.8 * DEPTH
+TOP_OPEN_CR = 4.0
 
 MATLAB_BLUE = (0.000, 0.447, 0.741)
 MATLAB_ORANGE = (0.850, 0.325, 0.098)
@@ -180,7 +184,9 @@ def draw_front(ax):
 
 def draw_top(ax):
     _rect(ax, (-WIDTH / 2, 0), WIDTH, DEPTH, ec="k", lw=1.4)
-    _rect(ax, (-PED_W / 2, DEPTH), PED_W, PED_T, ec=MATLAB_GREEN, lw=1.3)
+    y0 = (DEPTH - TOP_OPEN_D) / 2
+    _rect(ax, (-TOP_OPEN_W / 2, y0), TOP_OPEN_W, TOP_OPEN_D, ec=MATLAB_ORANGE, lw=1.4, ls="--")
+    ax.text(0, DEPTH / 2, "top hatch\n50% W x 80% D", ha="center", va="center", fontsize=8, color=MATLAB_ORANGE)
     ax.plot([-DIAL_HOLE_D / 2, DIAL_HOLE_D / 2], [0, 0], color=MATLAB_ORANGE, lw=2.4)
     ax.plot([-DIAL_BEZEL_D / 2, DIAL_BEZEL_D / 2], [-0.8, -0.8], color=MATLAB_ORANGE, lw=1.0, ls="--")
     for s in (-1, 1):
@@ -188,20 +194,20 @@ def draw_top(ax):
         _circle(ax, (s * SCREW_X, SCREW_Y), BOSS_INNER_D / 2, ec=MATLAB_BLUE, lw=0.8, ls=":")
         _circle(ax, (s * SCREW_X, SCREW_Y), BOSS_OUTER_D / 2, ec=MATLAB_BLUE, lw=0.8)
         a = np.deg2rad(s * PED_SPLAY)
-        x0, y0 = s * PED_SPAN / 2, DEPTH + PED_T / 2
-        x1, y1 = x0 + 16 * np.sin(a), y0 + 10 * np.cos(a)
+        x0, y0h = s * PED_SPAN / 2, DEPTH
+        x1, y1 = x0 + 16 * np.sin(a), y0h + 10 * np.cos(a)
         ax.annotate(
             "",
             xy=(x1, y1),
-            xytext=(x0, y0),
+            xytext=(x0, y0h),
             arrowprops=dict(arrowstyle="-|>", color=MATLAB_GREEN, lw=1.4),
         )
-        _circle(ax, (x0, y0), PED_HOLE_D / 2, ec=MATLAB_GREEN, lw=1.2)
+        _circle(ax, (x0, y0h), PED_HOLE_D / 2, ec=MATLAB_GREEN, lw=1.2)
     ax.text(0, SCREW_Y + 12, "M4  13 mm ID boss  2 mm wall", ha="center", fontsize=8, color=MATLAB_BLUE)
     ax.text(
         0,
-        DEPTH + PED_T + 9,
-        "8.2 mm on 3 mm pedestal   30 deg included   15 deg from rear axis",
+        DEPTH + 9,
+        "8.2 mm flush in back wall   +/-15 deg splay   30 deg down",
         ha="center",
         fontsize=8,
         color=MATLAB_GREEN,
@@ -215,12 +221,13 @@ def draw_top(ax):
     ax.set_ylabel("Y  (front=0, back=+Y)")
     ax.set_aspect("equal")
     ax.set_xlim(-WIDTH / 2 - 18, WIDTH / 2 + 22)
-    ax.set_ylim(-16, DEPTH + PED_T + 16)
+    ax.set_ylim(-16, DEPTH + 16)
 
 
 def draw_right(ax):
     _rect(ax, (0, 0), DEPTH, HEIGHT, ec="k", lw=1.4)
-    _rect(ax, (DEPTH, CENTER_Z - PED_H / 2), PED_T, PED_H, ec=MATLAB_GREEN, lw=1.3)
+    y0 = (DEPTH - TOP_OPEN_D) / 2
+    _rect(ax, (y0, INNER_TOP), TOP_OPEN_D, TOP_T, ec=MATLAB_ORANGE, lw=1.2, ls="--")
     _rect(ax, (0, INNER_TOP), DEPTH, TOP_T, ec=MATLAB_BLUE, lw=1.0, ls="--")
     ax.plot([0, WALL], [CENTER_Z - DIAL_HOLE_D / 2] * 2, color=MATLAB_ORANGE, lw=1.6)
     ax.plot([0, WALL], [CENTER_Z + DIAL_HOLE_D / 2] * 2, color=MATLAB_ORANGE, lw=1.6)
@@ -268,7 +275,7 @@ def draw_back(ax):
         a = np.deg2rad(s * PED_SPLAY)
         ax.annotate(
             "",
-            xy=(s * PED_SPAN / 2 + 14 * np.sin(a), CENTER_Z),
+            xy=(s * PED_SPAN / 2 + 14 * np.sin(a), CENTER_Z - 10),
             xytext=(s * PED_SPAN / 2, CENTER_Z),
             arrowprops=dict(arrowstyle="-|>", color=MATLAB_GREEN, lw=1.3),
         )
@@ -276,12 +283,12 @@ def draw_back(ax):
     ax.text(
         0,
         CENTER_Z - PED_H / 2 - 7,
-        "two 8.2 mm holes   facing away   30 deg between them",
+        "two 8.2 mm holes   flush with back   +/-15 deg   30 deg down",
         ha="center",
         fontsize=8,
         color=MATLAB_GREEN,
     )
-    ax.set_title("Back  (X-Z)  looking at the pedestal")
+    ax.set_title("Back  (X-Z)  LED holes in the rear wall")
     ax.set_xlabel("X")
     ax.set_ylabel("Z")
     ax.set_aspect("equal")
@@ -324,7 +331,7 @@ def draw_iso(ax):
     _add_poly(ax, _box_faces(x0, x1, 0, DEPTH, 0, HEIGHT), MATLAB_BLUE, 0.28)
     _add_poly(
         ax,
-        _box_faces(-PED_W / 2, PED_W / 2, DEPTH, DEPTH + PED_T, CENTER_Z - PED_H / 2, CENTER_Z + PED_H / 2),
+        _box_faces(-PED_W / 2, PED_W / 2, DEPTH - WALL, DEPTH, CENTER_Z - PED_H / 2, CENTER_Z + PED_H / 2),
         MATLAB_GREEN,
         0.55,
     )
@@ -337,24 +344,25 @@ def draw_iso(ax):
         _circ3(ax, (s * SCREW_X, SCREW_Y, HEIGHT), M4_CLEAR_D / 2, (0, 0, 1), MATLAB_BLUE, lw=1.6)
         _circ3(ax, (s * SCREW_X, SCREW_Y, INNER_TOP / 2), BOSS_INNER_D / 2, (0, 0, 1), MATLAB_BLUE, lw=1.0)
         a = np.deg2rad(s * PED_SPLAY)
-        nrm = (np.sin(a), np.cos(a), 0.0)
+        down = np.deg2rad(PED_DOWN)
+        nrm = (np.sin(a) * np.cos(down), np.cos(a) * np.cos(down), -np.sin(down))
         _circ3(
             ax,
-            (s * PED_SPAN / 2, DEPTH + PED_T, CENTER_Z),
+            (s * PED_SPAN / 2, DEPTH, CENTER_Z),
             PED_HOLE_D / 2,
             nrm,
             MATLAB_GREEN,
             lw=1.6,
         )
         ax.plot(
-            [s * PED_SPAN / 2, s * PED_SPAN / 2 + 12 * np.sin(a)],
-            [DEPTH + PED_T, DEPTH + PED_T + 12 * np.cos(a)],
-            [CENTER_Z, CENTER_Z],
+            [s * PED_SPAN / 2, s * PED_SPAN / 2 + 12 * nrm[0]],
+            [DEPTH, DEPTH + 12 * nrm[1]],
+            [CENTER_Z, CENTER_Z + 12 * nrm[2]],
             color=MATLAB_GREEN,
             lw=1.4,
         )
     ax.view_init(elev=22, azim=-52)
-    ax.set_box_aspect((WIDTH, DEPTH + PED_T, HEIGHT))
+    ax.set_box_aspect((WIDTH, DEPTH, HEIGHT))
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
     ax.set_zlabel("Z")
@@ -403,7 +411,7 @@ def main():
     fig.suptitle(
         "M5Stack Dial under-shelf case   "
         f"{WIDTH:.0f} x {DEPTH:.1f} x {HEIGHT:.0f} mm    "
-        "walls 3 mm   top 5 mm   1 mm rounds   30+10 mm chamfers   M4 bosses   20 mm cable slot",
+        "walls 3 mm   top 5 mm   50x80% hatch   LED holes flush, +/-15 / 30 down",
         fontsize=13,
         fontweight="medium",
         y=0.98,
