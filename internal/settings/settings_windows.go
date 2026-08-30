@@ -12,6 +12,7 @@ import (
 const (
 	idCombo = 1010
 	idView  = 1011
+	idRot   = 1012
 	idSave  = 1
 	idCancel = 2
 	idBase  = 1001
@@ -22,6 +23,7 @@ type Dialog struct {
 	checks []windows.Handle
 	combo  windows.Handle
 	view   windows.Handle
+	rot    windows.Handle
 	ports  []serial.PortInfo
 	cfg    config.Config
 	font   windows.Handle
@@ -44,7 +46,7 @@ func New(parent windows.Handle) (*Dialog, error) {
 		win32.WS_EX_APPWINDOW,
 		win32.WS_CAPTION|win32.WS_SYSMENU,
 		"CLIDialSettings", "CLI Dial Settings",
-		200, 200, 460, 580, parent, 0,
+		200, 160, 460, 650, parent, 0,
 	)
 	if err != nil {
 		return nil, err
@@ -99,8 +101,10 @@ func (d *Dialog) build() {
 	d.combo = child(0, win32.CBS_DROPDOWNLIST|win32.CBS_HASSTRINGS|win32.WS_TABSTOP, "COMBOBOX", "", 32, 292, 390, 180, idCombo)
 	child(0, 0, "STATIC", "On-screen overlay", 24, 336, 400, 22, 0)
 	d.view = child(0, win32.CBS_DROPDOWNLIST|win32.CBS_HASSTRINGS|win32.WS_TABSTOP, "COMBOBOX", "", 32, 360, 390, 80, idView)
-	child(0, win32.BS_DEFPUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Save", 230, 490, 90, 28, idSave)
-	child(0, win32.BS_PUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Cancel", 332, 490, 90, 28, idCancel)
+	child(0, 0, "STATIC", "Dial display rotation", 24, 404, 400, 22, 0)
+	d.rot = child(0, win32.CBS_DROPDOWNLIST|win32.CBS_HASSTRINGS|win32.WS_TABSTOP, "COMBOBOX", "", 32, 428, 390, 80, idRot)
+	child(0, win32.BS_DEFPUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Save", 230, 560, 90, 28, idSave)
+	child(0, win32.BS_PUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Cancel", 332, 560, 90, 28, idCancel)
 }
 
 func (d *Dialog) Show(cfg config.Config, ports []serial.PortInfo) {
@@ -133,6 +137,21 @@ func (d *Dialog) Show(cfg config.Config, ports []serial.PortInfo) {
 		vsel = 1
 	}
 	win32.ComboSet(d.view, vsel)
+	win32.ComboReset(d.rot)
+	win32.ComboAdd(d.rot, "0 degrees (up)")
+	win32.ComboAdd(d.rot, "90 degrees")
+	win32.ComboAdd(d.rot, "180 degrees")
+	win32.ComboAdd(d.rot, "270 degrees")
+	rsel := 0
+	switch cfg.DisplayRotation {
+	case 90:
+		rsel = 1
+	case 180:
+		rsel = 2
+	case 270:
+		rsel = 3
+	}
+	win32.ComboSet(d.rot, rsel)
 	win32.ShowWindow(d.hwnd, win32.SW_SHOW)
 	win32.SetForegroundWindow(d.hwnd)
 }
@@ -167,6 +186,16 @@ func (d *Dialog) save() {
 		cfg.OverlayView = "graphical"
 	} else {
 		cfg.OverlayView = "classic"
+	}
+	switch win32.ComboGet(d.rot) {
+	case 1:
+		cfg.DisplayRotation = 90
+	case 2:
+		cfg.DisplayRotation = 180
+	case 3:
+		cfg.DisplayRotation = 270
+	default:
+		cfg.DisplayRotation = 0
 	}
 	if d.OnSave != nil {
 		d.OnSave(cfg)

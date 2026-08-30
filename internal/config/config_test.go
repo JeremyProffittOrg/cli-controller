@@ -14,6 +14,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	cfg.Port = "COM10"
 	cfg.LastSerial = "B0:81:84:97:1E:54"
 	cfg.OverlayView = "graphical"
+	cfg.DisplayRotation = 180
 	cfg.Brands["unknown"] = false
 	cfg.Brands["grok"] = true
 	if err := Save(cfg); err != nil {
@@ -28,6 +29,9 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	}
 	if got.OverlayView != "graphical" {
 		t.Fatalf("overlayView %s", got.OverlayView)
+	}
+	if got.DisplayRotation != 180 {
+		t.Fatalf("displayRotation %d", got.DisplayRotation)
 	}
 	if got.Enabled("unknown") {
 		t.Fatal("unknown should be off")

@@ -13,8 +13,9 @@ type Config struct {
 	Port        string `json:"port"`
 	LastSerial  string `json:"lastSerial"`
 	DwellMs     int    `json:"dwellMs"`
-	OverlayView string `json:"overlayView"`
-	Brands      Brands `json:"brands"`
+	OverlayView      string `json:"overlayView"`
+	DisplayRotation  int    `json:"displayRotation"`
+	Brands           Brands `json:"brands"`
 }
 
 func BrandNames() []string {
@@ -35,8 +36,9 @@ func Default() Config {
 		Port:        "",
 		LastSerial:  "",
 		DwellMs:     2000,
-		OverlayView: "classic",
-		Brands:      DefaultBrands(),
+		OverlayView:     "classic",
+		DisplayRotation: 0,
+		Brands:          DefaultBrands(),
 	}
 }
 
@@ -88,6 +90,11 @@ func (c *Config) Normalize() {
 	}
 	if c.OverlayView != "graphical" {
 		c.OverlayView = "classic"
+	}
+	switch c.DisplayRotation {
+	case 90, 180, 270:
+	default:
+		c.DisplayRotation = 0
 	}
 	if c.Brands == nil {
 		c.Brands = DefaultBrands()

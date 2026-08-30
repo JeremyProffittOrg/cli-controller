@@ -329,7 +329,7 @@ func (a *App) sendState() {
 		}
 		title = a.list[sel].Title
 	}
-	b, err := protocol.State(a.connected, n, sel, brand, title)
+	b, err := protocol.StateRot(a.connected, n, sel, brand, title, a.cfg.DisplayRotation)
 	if err != nil {
 		return
 	}
@@ -345,12 +345,17 @@ func (a *App) openSettings() {
 }
 
 func (a *App) saveSettings(cfg config.Config) {
+	portChanged := cfg.PortMode != a.cfg.PortMode || cfg.Port != a.cfg.Port
 	a.cfg = cfg
 	if err := config.Save(cfg); err != nil {
 		a.log.Printf("save config: %v", err)
 	}
 	a.refresh()
-	a.restartSerial()
+	if portChanged {
+		a.restartSerial()
+		return
+	}
+	a.sendState()
 }
 
 func (a *App) shutdown() {

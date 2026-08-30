@@ -29,6 +29,7 @@ type HostMsg struct {
 	Sel   int    `json:"sel,omitempty"`
 	Brand string `json:"brand,omitempty"`
 	Title string `json:"title,omitempty"`
+	Rot   int    `json:"rot"`
 }
 
 func ParseDeviceLine(line string) (DeviceMsg, error) {
@@ -79,6 +80,10 @@ func Ping() ([]byte, error) {
 }
 
 func State(link bool, n, sel int, brand, title string) ([]byte, error) {
+	return StateRot(link, n, sel, brand, title, 0)
+}
+
+func StateRot(link bool, n, sel int, brand, title string, rot int) ([]byte, error) {
 	return EncodeHost(HostMsg{
 		V:     1,
 		T:     "state",
@@ -87,7 +92,17 @@ func State(link bool, n, sel int, brand, title string) ([]byte, error) {
 		Sel:   sel,
 		Brand: brand,
 		Title: truncate(title, 80),
+		Rot:   NormalizeDeg(rot),
 	})
+}
+
+func NormalizeDeg(deg int) int {
+	switch deg {
+	case 90, 180, 270:
+		return deg
+	default:
+		return 0
+	}
 }
 
 func truncate(s string, n int) string {

@@ -1,7 +1,7 @@
 #include <M5Dial.h>
 #include <cstring>
 
-static const char *kFw = "0.2.0";
+static const char *kFw = "0.3.0";
 static const uint32_t kHostTimeoutMs = 3000;
 static const uint32_t kOverlayHoldMs = 2500;
 static const int kDetentPulses = 4;
@@ -19,6 +19,7 @@ static String lineBuf;
 static bool hostLink = false;
 static bool dirty = true;
 static const char *pending = nullptr;
+static int dispRot = 0;
 
 static uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b) {
   return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
@@ -85,6 +86,34 @@ static void sendTap(const char *id) {
 static void sendBtn() { sendRaw("{\"v\":1,\"t\":\"btn\",\"id\":\"a\"}"); }
 
 static void sendPong() { sendRaw("{\"v\":1,\"t\":\"pong\"}"); }
+
+static int jsonInt(const String &line, const char *key, int def) {
+  String needle = String("\"") + key + "\":";
+  int start = line.indexOf(needle);
+  if (start < 0) {
+    return def;
+  }
+  return line.substring(start + needle.length()).toInt();
+}
+
+static void applyRotation(int deg) {
+  int r = 0;
+  if (deg == 90) {
+    r = 1;
+  } else if (deg == 180) {
+    r = 2;
+  } else if (deg == 270) {
+    r = 3;
+  }
+  if (r == (int)M5Dial.Display.getRotation()) {
+    dispRot = r;
+    return;
+  }
+  dispRot = r;
+  M5Dial.Display.setRotation(r);
+  dirty = true;
+  drawn = (Screen)-1;
+}
 
 static void click() { M5Dial.Speaker.tone(4000, 20); }
 
@@ -201,6 +230,7 @@ static void handleHostLine(const String &line) {
   if (jsonHasType(s, "state")) {
     overlayBrand = jsonString(s, "brand");
     overlayTitle = jsonString(s, "title");
+    applyRotation(jsonInt(s, "rot", 0));
     if (screen == SCREEN_OVERLAY) {
       dirty = true;
     }

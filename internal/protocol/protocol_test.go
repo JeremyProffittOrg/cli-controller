@@ -50,6 +50,13 @@ func TestEncodeHostRoundTrip(t *testing.T) {
 	if !strings.Contains(s, `"t":"state"`) || !strings.Contains(s, `"brand":"grok"`) {
 		t.Fatalf("state %s", s)
 	}
+	r, err := StateRot(true, 1, 0, "grok", "t", 180)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(r, []byte(`"rot":180`)) {
+		t.Fatalf("rot %s", r)
+	}
 	h, err := HelloHost()
 	if err != nil {
 		t.Fatal(err)
