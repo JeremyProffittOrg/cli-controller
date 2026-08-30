@@ -34,7 +34,10 @@ PED_H = 18.0
 BOTTOM_CLEAR = 3.0
 WIDTH = 86.0
 SCREW_X = 33.0
-SCREW_Y = 18.0
+BOSS_EDGE = 3.0
+SCREW_Y_FRONT = BOSS_OUTER_D / 2 + BOSS_EDGE
+SCREW_Y_BACK = DEPTH - BOSS_OUTER_D / 2 - BOSS_EDGE
+SCREW_YS = (SCREW_Y_FRONT, SCREW_Y_BACK)
 BOTTOM_CHAMFER = 30.0
 BOTTOM_CHAMFER2 = 10.0
 BEZEL_R = DIAL_BEZEL_D / 2
@@ -190,9 +193,10 @@ def draw_top(ax):
     ax.plot([-DIAL_HOLE_D / 2, DIAL_HOLE_D / 2], [0, 0], color=MATLAB_ORANGE, lw=2.4)
     ax.plot([-DIAL_BEZEL_D / 2, DIAL_BEZEL_D / 2], [-0.8, -0.8], color=MATLAB_ORANGE, lw=1.0, ls="--")
     for s in (-1, 1):
-        _circle(ax, (s * SCREW_X, SCREW_Y), M4_CLEAR_D / 2, ec=MATLAB_BLUE, lw=1.5)
-        _circle(ax, (s * SCREW_X, SCREW_Y), BOSS_INNER_D / 2, ec=MATLAB_BLUE, lw=0.8, ls=":")
-        _circle(ax, (s * SCREW_X, SCREW_Y), BOSS_OUTER_D / 2, ec=MATLAB_BLUE, lw=0.8)
+        for sy in SCREW_YS:
+            _circle(ax, (s * SCREW_X, sy), M4_CLEAR_D / 2, ec=MATLAB_BLUE, lw=1.5)
+            _circle(ax, (s * SCREW_X, sy), BOSS_INNER_D / 2, ec=MATLAB_BLUE, lw=0.8, ls=":")
+            _circle(ax, (s * SCREW_X, sy), BOSS_OUTER_D / 2, ec=MATLAB_BLUE, lw=0.8)
         a = np.deg2rad(s * PED_SPLAY)
         x0, y0h = s * PED_SPAN / 2, DEPTH
         x1, y1 = x0 + 16 * np.sin(a), y0h + 10 * np.cos(a)
@@ -203,7 +207,7 @@ def draw_top(ax):
             arrowprops=dict(arrowstyle="-|>", color=MATLAB_GREEN, lw=1.4),
         )
         _circle(ax, (x0, y0h), PED_HOLE_D / 2, ec=MATLAB_GREEN, lw=1.2)
-    ax.text(0, SCREW_Y + 12, "M4  13 mm ID boss  2 mm wall", ha="center", fontsize=8, color=MATLAB_BLUE)
+    ax.text(0, (SCREW_Y_FRONT + SCREW_Y_BACK) / 2, "M4  13 mm ID boss  2 mm wall  3 mm from front/back", ha="center", fontsize=8, color=MATLAB_BLUE)
     ax.text(
         0,
         DEPTH + 9,
@@ -215,7 +219,8 @@ def draw_top(ax):
     )
     _dim_h(ax, -WIDTH / 2, WIDTH / 2, -10, f"{WIDTH:.0f}")
     _dim_v(ax, WIDTH / 2 + 10, 0, DEPTH, f"{DEPTH:.1f}  (2.00 in)")
-    _dim_h(ax, -SCREW_X, SCREW_X, SCREW_Y - 8, f"{2 * SCREW_X:.0f}  (screw span)", side=-1)
+    _dim_h(ax, -SCREW_X, SCREW_X, SCREW_Y_FRONT - 8, f"{2 * SCREW_X:.0f}  (screw span)", side=-1)
+    _dim_v(ax, -WIDTH / 2 - 8, 0, SCREW_Y_FRONT, f"{SCREW_Y_FRONT:.1f}", side=-1)
     ax.set_title("Top  (X-Y)  looking down through the shelf")
     ax.set_xlabel("X")
     ax.set_ylabel("Y  (front=0, back=+Y)")
@@ -240,8 +245,9 @@ def draw_right(ax):
         lw=1.4,
     )
     ax.add_patch(slot)
-    ax.plot([SCREW_Y, SCREW_Y], [INNER_TOP, HEIGHT], color=MATLAB_BLUE, lw=1.4)
-    _circle(ax, (SCREW_Y, INNER_TOP / 2), BOSS_INNER_D / 2, ec=MATLAB_BLUE, lw=0.8, ls=":")
+    for sy in SCREW_YS:
+        ax.plot([sy, sy], [INNER_TOP, HEIGHT], color=MATLAB_BLUE, lw=1.4)
+        _circle(ax, (sy, INNER_TOP / 2), BOSS_INNER_D / 2, ec=MATLAB_BLUE, lw=0.8, ls=":")
     ax.plot([0, DEPTH], [INNER_TOP, INNER_TOP], color=MATLAB_BLUE, lw=0.6, ls=":")
     ax.text(DEPTH + PED_T + 2, CABLE_Z, "20 mm\nslot", fontsize=8, va="center", color="k")
     _dim_v(ax, DEPTH + PED_T + 14, 0, HEIGHT, f"{HEIGHT:.0f}")
@@ -341,8 +347,9 @@ def draw_iso(ax):
     _circ3(ax, (0, 0, CENTER_Z), DIAL_BEZEL_D / 2, (0, 1, 0), MATLAB_ORANGE, lw=0.8)
     _circ3(ax, (0, DEPTH, CABLE_Z), CABLE_SLOT_H / 2, (0, 1, 0), "k", lw=1.6)
     for s in (-1, 1):
-        _circ3(ax, (s * SCREW_X, SCREW_Y, HEIGHT), M4_CLEAR_D / 2, (0, 0, 1), MATLAB_BLUE, lw=1.6)
-        _circ3(ax, (s * SCREW_X, SCREW_Y, INNER_TOP / 2), BOSS_INNER_D / 2, (0, 0, 1), MATLAB_BLUE, lw=1.0)
+        for sy in SCREW_YS:
+            _circ3(ax, (s * SCREW_X, sy, HEIGHT), M4_CLEAR_D / 2, (0, 0, 1), MATLAB_BLUE, lw=1.6)
+            _circ3(ax, (s * SCREW_X, sy, INNER_TOP / 2), BOSS_INNER_D / 2, (0, 0, 1), MATLAB_BLUE, lw=1.0)
         a = np.deg2rad(s * PED_SPLAY)
         down = np.deg2rad(PED_DOWN)
         nrm = (np.sin(a) * np.cos(down), np.cos(a) * np.cos(down), -np.sin(down))
@@ -394,9 +401,10 @@ def draw_cutaway(ax):
     _add_poly(ax, faces, (0.93, 0.69, 0.13), 0.35)
     # USB band on the cut face
     _circ3(ax, (0, 0, CENTER_Z), DIAL_HOLE_D / 2, (0, 1, 0), MATLAB_ORANGE, lw=2.0)
-    ax.plot([-SCREW_X, -SCREW_X], [SCREW_Y, SCREW_Y], [0, HEIGHT], color=MATLAB_BLUE, lw=1.4)
+    for sy in SCREW_YS:
+        ax.plot([-SCREW_X, -SCREW_X], [sy, sy], [0, HEIGHT], color=MATLAB_BLUE, lw=1.4)
     ax.plot([0, 0], [DEPTH, DEPTH], [CABLE_Z - CABLE_SLOT_H / 2, CABLE_Z + CABLE_SLOT_H / 2], color="k", lw=2)
-    ax.text(2, SCREW_Y, HEIGHT + 3, "M4 through 5 mm top, 13 mm boss", color=MATLAB_BLUE, fontsize=8)
+    ax.text(2, SCREW_Y_FRONT, HEIGHT + 3, "M4 bosses 3 mm from front and back", color=MATLAB_BLUE, fontsize=8)
     ax.view_init(elev=18, azim=-40)
     ax.set_box_aspect((WIDTH / 2, DEPTH, HEIGHT))
     ax.set_xlabel("X")

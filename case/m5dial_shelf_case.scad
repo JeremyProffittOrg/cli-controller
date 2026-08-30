@@ -31,7 +31,7 @@ ped_h         = 18.0;
 bottom_clear  = 3.0;
 width         = 86.0;
 screw_x       = 33.0;
-screw_y       = 18.0;
+boss_edge     = 3.0;          // outer cylinder to front / back face
 print_slop    = 0.2;
 edge_r        = 1.0;
 bottom_chamfer  = 30.0;       // 45 deg first cut, bottom-left and bottom-right
@@ -52,6 +52,9 @@ c2s       = bottom_chamfer2 / sqrt(2);
 top_open_w    = 0.5 * width;  // 50 % of width, centered
 top_open_d    = 0.8 * depth;  // 80 % of depth, centered
 top_open_cr   = 4.0;          // corner radius of the top hatch
+screw_y_front = boss_outer_d / 2 + boss_edge;                 // 11.5
+screw_y_back  = depth - boss_outer_d / 2 - boss_edge;          // 39.3
+screw_ys      = [screw_y_front, screw_y_back];
 
 preview = false;
 cutaway = false;
@@ -172,20 +175,20 @@ module dial_hole() {
 
 module screw_bosses() {
     // Overlap the 5 mm top so the union is not coplanar with the underside.
-    for (s = [-1, 1])
-        translate([s * screw_x, screw_y, 0])
+    for (s = [-1, 1], y = screw_ys)
+        translate([s * screw_x, y, 0])
             cylinder(d = boss_outer_d, h = inner_top + 1);
 }
 
 module screw_head_bores() {
-    for (s = [-1, 1])
-        translate([s * screw_x, screw_y, -4])
+    for (s = [-1, 1], y = screw_ys)
+        translate([s * screw_x, y, -4])
             filleted_cyl(boss_inner_d, inner_top + 2);
 }
 
 module screw_top_holes() {
-    for (s = [-1, 1])
-        translate([s * screw_x, screw_y, inner_top - 2])
+    for (s = [-1, 1], y = screw_ys)
+        translate([s * screw_x, y, inner_top - 2])
             filleted_cyl(m4_clear_d, top_t + 4);
 }
 
