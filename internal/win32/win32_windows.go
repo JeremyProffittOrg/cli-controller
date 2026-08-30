@@ -38,7 +38,13 @@ const (
 	WM_USER          = 0x0400
 	WM_QUIT          = 0x0012
 	WM_SETFONT       = 0x0030
+	WM_ERASEBKGND       = 0x0014
+	WM_CTLCOLOREDIT     = 0x0133
+	WM_CTLCOLORLISTBOX  = 0x0134
+	WM_CTLCOLORBTN      = 0x0135
 	WM_CTLCOLORSTATIC = 0x0138
+	CBN_SELCHANGE       = 1
+	HALFTONE            = 4
 
 	SW_HIDE            = 0
 	SW_SHOW            = 5
@@ -331,6 +337,8 @@ var (
 	procCreateDIBSection     = modGdi32.NewProc("CreateDIBSection")
 	procCreateBitmap         = modGdi32.NewProc("CreateBitmap")
 	procBitBlt               = modGdi32.NewProc("BitBlt")
+	procStretchBlt           = modGdi32.NewProc("StretchBlt")
+	procSetStretchBltMode    = modGdi32.NewProc("SetStretchBltMode")
 	procDeleteDC             = modGdi32.NewProc("DeleteDC")
 	procCreateRoundRectRgn   = modGdi32.NewProc("CreateRoundRectRgn")
 	procCreateEllipticRgn    = modGdi32.NewProc("CreateEllipticRgn")
@@ -525,6 +533,11 @@ func CreateFont(h int32, weight int32, name string) windows.Handle {
 
 func GetStockFont() windows.Handle {
 	r, _, _ := procGetStockObject.Call(DEFAULT_GUI_FONT)
+	return windows.Handle(r)
+}
+
+func NullBrush() windows.Handle {
+	r, _, _ := procGetStockObject.Call(NULL_BRUSH)
 	return windows.Handle(r)
 }
 
@@ -805,6 +818,18 @@ func ReleaseDC(hwnd, hdc windows.Handle) {
 func CreateCompatibleDC(hdc windows.Handle) windows.Handle {
 	r, _, _ := procCreateCompatibleDC.Call(uintptr(hdc))
 	return windows.Handle(r)
+}
+
+func BitBlt(dst windows.Handle, x, y, w, h int32, src windows.Handle) {
+	procBitBlt.Call(uintptr(dst), uintptr(x), uintptr(y), uintptr(w), uintptr(h), uintptr(src), 0, 0, SRCCOPY)
+}
+
+func StretchBlt(dst windows.Handle, dx, dy, dw, dh int32, src windows.Handle, sx, sy, sw, sh int32) {
+	procStretchBlt.Call(uintptr(dst), uintptr(dx), uintptr(dy), uintptr(dw), uintptr(dh), uintptr(src), uintptr(sx), uintptr(sy), uintptr(sw), uintptr(sh), SRCCOPY)
+}
+
+func SetStretchBltMode(hdc windows.Handle, mode int) {
+	procSetStretchBltMode.Call(uintptr(hdc), uintptr(mode))
 }
 
 func DeleteDC(hdc windows.Handle) {

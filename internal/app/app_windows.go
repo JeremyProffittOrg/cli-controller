@@ -297,6 +297,7 @@ func (a *App) onEnc(delta int) {
 
 func (a *App) showOverlay() {
 	a.overlay.SetView(a.cfg.OverlayView)
+	a.overlay.SetTheme(a.cfg.OverlayTheme)
 	a.overlay.Show(wins.PrimaryWorkArea(), a.items(), a.sel)
 }
 

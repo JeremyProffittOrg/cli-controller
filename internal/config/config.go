@@ -14,6 +14,7 @@ type Config struct {
 	LastSerial  string `json:"lastSerial"`
 	DwellMs     int    `json:"dwellMs"`
 	OverlayView      string `json:"overlayView"`
+	OverlayTheme     string `json:"overlayTheme"`
 	DisplayRotation  int    `json:"displayRotation"`
 	Brands           Brands `json:"brands"`
 }
@@ -37,6 +38,7 @@ func Default() Config {
 		LastSerial:  "",
 		DwellMs:     2000,
 		OverlayView:     "classic",
+		OverlayTheme:    "neon-core",
 		DisplayRotation: 0,
 		Brands:          DefaultBrands(),
 	}
@@ -90,6 +92,9 @@ func (c *Config) Normalize() {
 	}
 	if c.OverlayView != "graphical" {
 		c.OverlayView = "classic"
+	}
+	if c.OverlayTheme == "" {
+		c.OverlayTheme = "neon-core"
 	}
 	c.DisplayRotation %= 360
 	if c.DisplayRotation < 0 {

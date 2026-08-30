@@ -27,6 +27,7 @@ Recorded 2026-08-29 from the operator.
 - 2026-08-30: Permanently repair arbitrary-angle Dial rendering; do not replace the saved 301-degree rotation with a cardinal-angle workaround.
 - 2026-08-30: Add `Settings` as the permanent last item in the dial-controlled overlay list; dwell or BtnA activation opens the existing Settings dialog.
 - 2026-08-30: Replace the desktop graphical overlay with a wide futuristic layout: circuit graphics and a dial on the left, five scrolling item slots on the right, and a vivid red arrow plus bold text for the selected item.
+- 2026-08-30: Graphical overlay is a round HUD with 20 embedded theme images, item slots on the right, a Settings theme picker, and a dark futuristic Settings surface.
 
 ## Verified facts
 
@@ -373,5 +374,6 @@ Do not idle: if upload waits, keep writing Go tests.
 - 2026-08-30 graphical overlay redesign added to the active scope: futuristic left circuit dial, five right-side scrolling slots, and red-arrow/bold selected state.
 - 2026-08-30 `go test ./...` passed after adding the virtual final `Settings` item, refresh-stable selection, Settings host state, 1040x600 graphical bounds, and five-slot viewport tests. `go build -ldflags="-H windowsgui"` passed.
 - 2026-08-30 visual QA: first preview found the old elliptical region clipped the new circuit header/footer. Replaced it with a high-contrast rounded rectangle and made preview use the real list with `Settings` selected. Second 1040x600 capture `artifacts/graphical-overlay-preview.png` showed five complete slots, circuit dial and traces, red double-chevron, bold `Settings`, and unclipped header/footer. Computer Use native pipe was unavailable after reset/retry, so the local screen-capture fallback supplied the render artifact.
+- 2026-08-30 round graphical themes: 20 HUD JPEGs embedded under `internal/overlay/themes`. Overlay is now a 760px elliptic region with theme art, right-side five-slot selector, and a red selection needle. Settings is a dark control surface with a 20-theme combo plus circular preview. `go test ./...` passed. Live preview `-preview -theme solar-flare` and `-preview-settings` captured. Installed to `%LOCALAPPDATA%\Programs\cli-controller`.
 - 2026-08-30 `scripts/install.ps1` installed the verified exe and started pid 30724. Host log shows the physical Dial disconnected at 05:33:57; PresentOnly PnP and `SerialPort.GetPortNames()` show no COM10 and no VID_303A device, meeting stop condition 2 for live dial activation only.
 - 2026-08-30 delivery: pushed commit `5fdd5b5` to `main`. GitHub run `33304569802` completed `success`; windows-app passed tests, built, and uploaded its artifact in 30 s; firmware built and uploaded its unchanged artifact in 2m6s. Final PnP check still found no VID_303A interface, so live Settings activation remains blocked only on reconnecting the physical Dial.

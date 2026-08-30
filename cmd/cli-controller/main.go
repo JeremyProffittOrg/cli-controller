@@ -11,6 +11,7 @@ import (
 	"github.com/JeremyProffittOrg/cli-controller/internal/app"
 	"github.com/JeremyProffittOrg/cli-controller/internal/config"
 	"github.com/JeremyProffittOrg/cli-controller/internal/overlay"
+	"github.com/JeremyProffittOrg/cli-controller/internal/settings"
 	"github.com/JeremyProffittOrg/cli-controller/internal/win32"
 	"github.com/JeremyProffittOrg/cli-controller/internal/wins"
 )
@@ -19,6 +20,8 @@ func main() {
 	runtime.LockOSThread()
 	selftest := flag.Bool("selftest", false, "enumerate windows and layout, then exit")
 	preview := flag.Bool("preview", false, "show overlay HUD for 15s then exit")
+	previewSettings := flag.Bool("preview-settings", false, "show settings dialog for 15s then exit")
+	theme := flag.String("theme", "", "force graphical overlay theme for preview")
 	flag.Parse()
 	if *selftest {
 		if err := runSelftest(); err != nil {
@@ -28,7 +31,14 @@ func main() {
 		return
 	}
 	if *preview {
-		if err := runPreview(); err != nil {
+		if err := runPreview(*theme); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+	if *previewSettings {
+		if err := runSettingsPreview(); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
@@ -93,7 +103,7 @@ func runSelftest() error {
 	return nil
 }
 
-func runPreview() error {
+func runPreview(theme string) error {
 	cfg, err := config.Load()
 	if err != nil {
 		cfg = config.Default()
@@ -108,7 +118,13 @@ func runPreview() error {
 	if len(items) > 0 {
 		sel = len(items) - 1
 	}
-	ov.SetView(cfg.OverlayView)
+	if theme != "" {
+		ov.SetView(overlay.ViewGraphical)
+		ov.SetTheme(theme)
+	} else {
+		ov.SetView(cfg.OverlayView)
+		ov.SetTheme(cfg.OverlayTheme)
+	}
 	ov.Show(wins.PrimaryWorkArea(), items, sel)
 	fmt.Printf("preview overlay items=%d sel=%d\n", len(items), sel)
 	deadline := time.Now().Add(15 * time.Second)
@@ -124,5 +140,32 @@ func runPreview() error {
 		time.Sleep(16 * time.Millisecond)
 	}
 	ov.Hide()
+	return nil
+}
+
+func runSettingsPreview() error {
+	cfg, err := config.Load()
+	if err != nil {
+		cfg = config.Default()
+	}
+	cfg.OverlayView = overlay.ViewGraphical
+	dlg, err := settings.New(0)
+	if err != nil {
+		return err
+	}
+	dlg.Show(cfg, nil)
+	fmt.Println("preview settings")
+	deadline := time.Now().Add(15 * time.Second)
+	for time.Now().Before(deadline) {
+		var msg win32.MSG
+		for win32.PeekMessage(&msg) {
+			if msg.Message == win32.WM_QUIT {
+				return nil
+			}
+			win32.Translate(&msg)
+			win32.Dispatch(&msg)
+		}
+		time.Sleep(16 * time.Millisecond)
+	}
 	return nil
 }

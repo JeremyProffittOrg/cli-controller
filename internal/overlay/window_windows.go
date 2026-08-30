@@ -15,6 +15,7 @@ type Overlay struct {
 	items    []Item
 	sel      int
 	view     string
+	theme    string
 	shown    bool
 	bg       windows.Handle
 	selBr    windows.Handle
@@ -31,6 +32,7 @@ type Overlay struct {
 func New() (*Overlay, error) {
 	o := &Overlay{
 		view:     ViewClassic,
+		theme:    NormalizeTheme(""),
 		bg:       win32.CreateBrush(win32.RGB(15, 23, 42)),
 		selBr:    win32.CreateBrush(win32.RGB(30, 58, 95)),
 		knobBr:   win32.CreateBrush(win32.RGB(30, 41, 59)),
@@ -38,8 +40,8 @@ func New() (*Overlay, error) {
 		font:     win32.CreateFont(-16, win32.FW_NORMAL, "Segoe UI"),
 		fontB:    win32.CreateFont(-16, win32.FW_BOLD, "Segoe UI"),
 		fontS:    win32.CreateFont(-13, win32.FW_NORMAL, "Segoe UI"),
-		fontItem: win32.CreateFont(-19, win32.FW_NORMAL, "Bahnschrift"),
-		fontSel:  win32.CreateFont(-24, win32.FW_BOLD, "Bahnschrift"),
+		fontItem: win32.CreateFont(-16, win32.FW_NORMAL, "Bahnschrift"),
+		fontSel:  win32.CreateFont(-18, win32.FW_BOLD, "Bahnschrift"),
 		fontTech: win32.CreateFont(-13, win32.FW_BOLD, "Bahnschrift"),
 	}
 	if err := win32.RegisterClass("CLIDialOverlay", overlayCB, o.bg); err != nil {
@@ -83,6 +85,10 @@ func (o *Overlay) SetView(view string) {
 		view = ViewClassic
 	}
 	o.view = view
+}
+
+func (o *Overlay) SetTheme(id string) {
+	o.theme = NormalizeTheme(id)
 }
 
 func (o *Overlay) paint(h windows.Handle) {
@@ -138,75 +144,33 @@ func (o *Overlay) paintGraphical(hdc windows.Handle, rc win32.RECT) {
 	win32.SetBkMode(hdc, win32.TRANSPARENT)
 	w := rc.Right - rc.Left
 	h := rc.Bottom - rc.Top
-	cx := float64(w) * 0.255
-	cy := float64(h) * 0.51
-	outer := float64(h) * 0.34
-	if max := float64(w) * 0.205; outer > max {
-		outer = max
+	if !DrawTheme(hdc, o.theme, rc) {
+		win32.FillRect(hdc, &rc, o.bg)
 	}
+	cx := float64(w) * 0.32
+	cy := float64(h) * 0.52
+	outer := float64(h) * 0.22
 	n := len(o.items)
 
-	cyanDim := win32.CreatePen(1, win32.RGB(14, 79, 91))
 	cyan := win32.CreatePen(3, win32.RGB(34, 211, 238))
 	redGlow := win32.CreatePen(11, win32.RGB(80, 7, 22))
 	red := win32.CreatePen(4, win32.RGB(255, 25, 62))
 	redFine := win32.CreatePen(2, win32.RGB(255, 78, 104))
-	panel := win32.CreateBrush(win32.RGB(10, 18, 30))
-	panelEdge := win32.CreateBrush(win32.RGB(18, 80, 94))
+	panel := win32.CreateBrush(win32.RGB(6, 10, 18))
+	panelEdge := win32.CreateBrush(win32.RGB(34, 211, 238))
 	selectedPanel := win32.CreateBrush(win32.RGB(45, 8, 20))
 	selectedEdge := win32.CreateBrush(win32.RGB(255, 25, 62))
-	node := win32.CreateBrush(win32.RGB(34, 211, 238))
 	hub := win32.CreateBrush(win32.RGB(255, 25, 62))
-	oldPen := win32.SelectObject(hdc, cyanDim)
+	oldPen := win32.SelectObject(hdc, cyan)
 	oldBr := win32.SelectObject(hdc, o.bg)
 
-	// Circuit traces sit behind the dial and terminate in luminous nodes.
-	traces := [][6]int32{
-		{24, 92, 112, 92, 112, 176}, {42, 500, 116, 500, 116, 430},
-		{116, 58, 178, 58, 178, 118}, {26, 320, 82, 320, 82, 270},
-		{276, 54, 340, 54, 340, 108}, {326, 548, 410, 548, 410, 454},
-		{390, 132, 468, 132, 468, 198}, {388, 438, 474, 438, 474, 380},
-	}
-	win32.SelectObject(hdc, cyanDim)
-	for _, p := range traces {
-		win32.MoveTo(hdc, p[0], p[1])
-		win32.LineTo(hdc, p[2], p[3])
-		win32.LineTo(hdc, p[4], p[5])
-		win32.SelectObject(hdc, node)
-		win32.Ellipse(hdc, p[4]-4, p[5]-4, p[4]+4, p[5]+4)
-		win32.SelectObject(hdc, o.bg)
-	}
-
-	// The dial uses layered rings, dense ticks, and a red data needle.
-	win32.SelectObject(hdc, o.bg)
-	win32.SelectObject(hdc, cyan)
-	win32.Ellipse(hdc, int32(cx-outer), int32(cy-outer), int32(cx+outer), int32(cy+outer))
-	win32.SelectObject(hdc, cyanDim)
-	win32.Ellipse(hdc, int32(cx-outer+12), int32(cy-outer+12), int32(cx+outer-12), int32(cy+outer-12))
-	win32.Ellipse(hdc, int32(cx-outer*0.58), int32(cy-outer*0.58), int32(cx+outer*0.58), int32(cy+outer*0.58))
-	for i := 0; i < 36; i++ {
-		ang := -math.Pi/2 + float64(i)*math.Pi/18
-		inner := outer - 18
-		if i%3 == 0 {
-			inner = outer - 31
-		}
-		x0, y0 := Polar(cx, cy, outer-5, ang)
-		x1, y1 := Polar(cx, cy, inner, ang)
-		if i%3 == 0 {
-			win32.SelectObject(hdc, cyan)
-		} else {
-			win32.SelectObject(hdc, cyanDim)
-		}
-		win32.MoveTo(hdc, int32(x0), int32(y0))
-		win32.LineTo(hdc, int32(x1), int32(y1))
-	}
 	rot := KnobRotation(o.sel, n)
 	if n == 0 {
 		rot = 0
 	}
 	needleAngle := -math.Pi/2 + rot
-	nx, ny := Polar(cx, cy, outer-43, needleAngle)
-	hx, hy := Polar(cx, cy, 25, needleAngle+math.Pi)
+	nx, ny := Polar(cx, cy, outer, needleAngle)
+	hx, hy := Polar(cx, cy, 18, needleAngle+math.Pi)
 	win32.SelectObject(hdc, redGlow)
 	win32.MoveTo(hdc, int32(hx), int32(hy))
 	win32.LineTo(hdc, int32(nx), int32(ny))
@@ -214,27 +178,15 @@ func (o *Overlay) paintGraphical(hdc windows.Handle, rc win32.RECT) {
 	win32.MoveTo(hdc, int32(hx), int32(hy))
 	win32.LineTo(hdc, int32(nx), int32(ny))
 	win32.SelectObject(hdc, hub)
-	win32.Ellipse(hdc, int32(cx-14), int32(cy-14), int32(cx+14), int32(cy+14))
-	win32.SelectObject(hdc, o.bg)
-	win32.SelectObject(hdc, redFine)
-	win32.Ellipse(hdc, int32(cx-27), int32(cy-27), int32(cx+27), int32(cy+27))
+	win32.Ellipse(hdc, int32(cx-10), int32(cy-10), int32(cx+10), int32(cy+10))
 
-	tech := win32.RECT{Left: 30, Top: 20, Right: int32(cx + outer), Bottom: 48}
-	win32.SelectObject(hdc, o.fontTech)
-	win32.SetTextColor(hdc, win32.RGB(34, 211, 238))
-	win32.DrawText(hdc, "CLI DIAL // CIRCUIT LINK ACTIVE", &tech, win32.DT_LEFT|win32.DT_VCENTER|win32.DT_SINGLELINE|win32.DT_NOPREFIX)
-	readout := win32.RECT{Left: int32(cx - 90), Top: int32(cy - 18), Right: int32(cx + 90), Bottom: int32(cy + 18)}
-	win32.SelectObject(hdc, o.fontTech)
-	win32.SetTextColor(hdc, win32.RGB(226, 232, 240))
-	win32.DrawText(hdc, "SELECT // "+fmtIndex(o.sel, n), &readout, win32.DT_CENTER|win32.DT_VCENTER|win32.DT_SINGLELINE|win32.DT_NOPREFIX)
-
-	// Five fixed slots show a contiguous window into the list.
 	const slots = 5
-	rightX := w * 51 / 100
-	rightEdge := w - 30
-	top := int32(70)
-	gap := int32(12)
-	slotH := (h - 140 - gap*(slots-1)) / slots
+	rightX := w * 52 / 100
+	rightEdge := w - int32(float64(w)*0.12)
+	top := int32(float64(h) * 0.20)
+	bottom := int32(float64(h) * 0.80)
+	gap := int32(8)
+	slotH := (bottom - top - gap*(slots-1)) / slots
 	start := VisibleStart(n, o.sel, slots)
 	for slot := 0; slot < slots; slot++ {
 		y := top + int32(slot)*(slotH+gap)
@@ -259,7 +211,7 @@ func (o *Overlay) paintGraphical(hdc windows.Handle, rc win32.RECT) {
 			win32.FillRect(hdc, &inner, panel)
 		}
 
-		number := win32.RECT{Left: box.Left + 16, Top: box.Top, Right: box.Left + 58, Bottom: box.Bottom}
+		number := win32.RECT{Left: box.Left + 10, Top: box.Top, Right: box.Left + 46, Bottom: box.Bottom}
 		win32.SelectObject(hdc, o.fontTech)
 		win32.SetTextColor(hdc, win32.RGB(34, 211, 238))
 		label := "--"
@@ -268,7 +220,7 @@ func (o *Overlay) paintGraphical(hdc windows.Handle, rc win32.RECT) {
 		}
 		win32.DrawText(hdc, label, &number, win32.DT_LEFT|win32.DT_VCENTER|win32.DT_SINGLELINE|win32.DT_NOPREFIX)
 
-		textBox := win32.RECT{Left: box.Left + 66, Top: box.Top, Right: box.Right - 18, Bottom: box.Bottom}
+		textBox := win32.RECT{Left: box.Left + 50, Top: box.Top, Right: box.Right - 12, Bottom: box.Bottom}
 		itemText := "EMPTY SLOT"
 		if idx < n {
 			it := o.items[idx]
@@ -279,29 +231,26 @@ func (o *Overlay) paintGraphical(hdc windows.Handle, rc win32.RECT) {
 			win32.SetTextColor(hdc, win32.RGB(255, 255, 255))
 		} else {
 			win32.SelectObject(hdc, o.fontItem)
-			win32.SetTextColor(hdc, win32.RGB(178, 196, 210))
+			win32.SetTextColor(hdc, win32.RGB(186, 210, 224))
 		}
 		win32.DrawText(hdc, itemText, &textBox, win32.DT_LEFT|win32.DT_VCENTER|win32.DT_SINGLELINE|win32.DT_NOPREFIX|win32.DT_END_ELLIPSIS)
 
 		if selected {
-			arrowX := box.Left - 35
+			arrowX := box.Left - 28
 			arrowY := (box.Top + box.Bottom) / 2
 			drawChevron(hdc, arrowX, arrowY, redGlow)
 			drawChevron(hdc, arrowX, arrowY, red)
-			win32.SelectObject(hdc, redFine)
-			win32.MoveTo(hdc, box.Right-15, box.Top+12)
-			win32.LineTo(hdc, box.Right-15, box.Bottom-12)
 		}
 	}
 
-	footer := win32.RECT{Left: rightX, Top: h - 48, Right: rightEdge, Bottom: h - 20}
+	readout := win32.RECT{Left: int32(cx - 70), Top: int32(cy + outer + 8), Right: int32(cx + 70), Bottom: int32(cy + outer + 32)}
 	win32.SelectObject(hdc, o.fontTech)
-	win32.SetTextColor(hdc, win32.RGB(104, 126, 142))
-	win32.DrawText(hdc, "5-SLOT NEURAL SELECTOR // ROTATE TO NAVIGATE", &footer, win32.DT_RIGHT|win32.DT_VCENTER|win32.DT_SINGLELINE|win32.DT_NOPREFIX)
+	win32.SetTextColor(hdc, win32.RGB(226, 232, 240))
+	win32.DrawText(hdc, fmtIndex(o.sel, n), &readout, win32.DT_CENTER|win32.DT_VCENTER|win32.DT_SINGLELINE|win32.DT_NOPREFIX)
 
 	win32.SelectObject(hdc, oldPen)
 	win32.SelectObject(hdc, oldBr)
-	for _, obj := range []windows.Handle{cyanDim, cyan, redGlow, red, redFine, panel, panelEdge, selectedPanel, selectedEdge, node, hub} {
+	for _, obj := range []windows.Handle{cyan, redGlow, red, redFine, panel, panelEdge, selectedPanel, selectedEdge, hub} {
 		win32.DeleteObject(obj)
 	}
 }
@@ -334,7 +283,7 @@ func (o *Overlay) Show(work image.Rectangle, items []Item, sel int) {
 	b := BoundsFor(work, o.view)
 	var rgn windows.Handle
 	if o.view == ViewGraphical {
-		rgn = win32.CreateRoundRectRgn(0, 0, int32(b.Dx()), int32(b.Dy()), 42, 42)
+		rgn = win32.CreateEllipticRgn(0, 0, int32(b.Dx()), int32(b.Dy()))
 	} else {
 		rgn = win32.CreateRoundRectRgn(0, 0, int32(b.Dx()), int32(b.Dy()), 24, 24)
 	}

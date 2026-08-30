@@ -14,6 +14,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	cfg.Port = "COM10"
 	cfg.LastSerial = "B0:81:84:97:1E:54"
 	cfg.OverlayView = "graphical"
+	cfg.OverlayTheme = "solar-flare"
 	cfg.DisplayRotation = 315
 	cfg.Brands["unknown"] = false
 	cfg.Brands["grok"] = true
@@ -29,6 +30,9 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	}
 	if got.OverlayView != "graphical" {
 		t.Fatalf("overlayView %s", got.OverlayView)
+	}
+	if got.OverlayTheme != "solar-flare" {
+		t.Fatalf("overlayTheme %s", got.OverlayTheme)
 	}
 	if got.DisplayRotation != 315 {
 		t.Fatalf("displayRotation %d", got.DisplayRotation)
