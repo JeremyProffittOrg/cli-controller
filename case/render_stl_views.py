@@ -44,6 +44,30 @@ MODELS = {
             "vl53l4cd_case_stl_side.png": (12, 0, "Right side"),
         },
     },
+    "pca9548_case_std": {
+        "title": "Adafruit PCA9548 I2C mux case, std 12 mm",
+        "rotate_x": 0,
+        "views": {
+            "pca9548_case_std_iso.png": (26, -52, "Isometric"),
+            "pca9548_case_std_rear_iso.png": (22, 128, "Rear isometric"),
+            "pca9548_case_std_long.png": (0, -90, "Long side"),
+            "pca9548_case_std_end.png": (0, 180, "Connector end"),
+            "pca9548_case_std_top.png": (90, -90, "Top"),
+            "pca9548_case_std_bottom.png": (-90, -90, "Bottom"),
+        },
+    },
+    "pca9548_case_tall": {
+        "title": "Adafruit PCA9548 I2C mux case, tall 24 mm",
+        "rotate_x": 0,
+        "views": {
+            "pca9548_case_tall_iso.png": (26, -52, "Isometric"),
+            "pca9548_case_tall_rear_iso.png": (22, 128, "Rear isometric"),
+            "pca9548_case_tall_long.png": (0, -90, "Long side"),
+            "pca9548_case_tall_end.png": (0, 180, "Connector end"),
+            "pca9548_case_tall_top.png": (90, -90, "Top"),
+            "pca9548_case_tall_bottom.png": (-90, -90, "Bottom"),
+        },
+    },
 }
 
 
@@ -92,8 +116,10 @@ def render(mesh: trimesh.Trimesh, title: str, elev: float, azim: float, label: s
     print(f"wrote {output}")
 
 
-def main() -> None:
+def main(only: list[str] | None = None) -> None:
     for stem, spec in MODELS.items():
+        if only and stem not in only:
+            continue
         path = ROOT / f"{stem}.stl"
         mesh = trimesh.load_mesh(path, process=False)
         if not isinstance(mesh, trimesh.Trimesh):
@@ -109,4 +135,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+
+    main(sys.argv[1:] or None)
