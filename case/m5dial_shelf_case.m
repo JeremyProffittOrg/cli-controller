@@ -3,9 +3,9 @@
 % Produces a 4-view mechanical drawing plus an isometric.
 
 function m5dial_shelf_case
-    wall = 3; top_t = 5; depth = 2*25.4; usb_clear = 15;
+    wall = 3; top_t = 5; depth = 2*25.4; usb_clear = 0;
     dial_bezel_d = 51; dial_hole_d = 45.2;
-    screw_d = 3; access_d = 10; cable_d = 8;
+    screw_d = 4.5; access_d = 13; cable_d = 8;
     ped_t = 3; ped_hole_d = 8.2; ped_splay = 15;
     ped_span = 14; ped_w = 34; ped_h = 18;
     bottom_clear = 3; width = 86; screw_x = 33; screw_y = 18;
@@ -33,8 +33,8 @@ function m5dial_shelf_case
     nexttile([1 2]);
     draw_iso(width,depth,height,ped_t,ped_w,ped_h,center_z,dial_hole_d,screw_x,screw_y,screw_d,cable_z,cable_d,ped_span,ped_hole_d,ped_splay,wall,top_t,access_d);
     title(sprintf(['Isometric  |  %g x %g x %g mm  |  top %g mm  |  walls %g mm  |  ' ...
-        'USB gap %g mm  |  screws 3 mm  |  cable 8 mm  |  pedestal 8.2 mm @ \\pm15\\circ'], ...
-        width, depth, height, top_t, wall, usb_clear));
+        'M4 bosses 13 mm ID  |  20 mm cable slot  |  pedestal 8.2 mm @ \\pm15\\circ'], ...
+        width, depth, height, top_t, wall));
     xlabel('X mm'); ylabel('Y mm'); zlabel('Z mm'); axis equal vis3d; grid on; box on;
     view(38, 22); camlight('headlight'); lighting gouraud;
 

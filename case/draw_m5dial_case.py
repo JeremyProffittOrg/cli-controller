@@ -15,12 +15,15 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 WALL = 3.0
 TOP_T = 5.0
 DEPTH = 2 * 25.4
-USB_CLEAR = 15.0
 DIAL_BEZEL_D = 51.0
 DIAL_HOLE_D = 45.2
-SCREW_D = 3.0
-ACCESS_D = 10.0
-CABLE_D = 8.0
+M4_CLEAR_D = 4.5
+M4_HEAD_D = 11.0
+BOSS_INNER_D = M4_HEAD_D + 2.0
+BOSS_WALL = 2.0
+BOSS_OUTER_D = BOSS_INNER_D + 2 * BOSS_WALL
+CABLE_SLOT_W = 20.0
+CABLE_SLOT_H = 8.0
 PED_T = 3.0
 PED_HOLE_D = 8.2
 PED_SPLAY = 15.0
@@ -32,11 +35,14 @@ WIDTH = 86.0
 SCREW_X = 33.0
 SCREW_Y = 18.0
 BOTTOM_CHAMFER = 30.0
+BOTTOM_CHAMFER2 = 10.0
 BEZEL_R = DIAL_BEZEL_D / 2
 CENTER_Z = WALL + BOTTOM_CLEAR + BEZEL_R
-INNER_TOP = CENTER_Z + BEZEL_R + USB_CLEAR
+INNER_TOP = CENTER_Z + BEZEL_R
 HEIGHT = INNER_TOP + TOP_T
-CABLE_Z = INNER_TOP - 3.0 - CABLE_D / 2
+CABLE_Z = INNER_TOP - 3.0 - CABLE_SLOT_H / 2
+HW = WIDTH / 2
+C2S = BOTTOM_CHAMFER2 / np.sqrt(2)
 
 MATLAB_BLUE = (0.000, 0.447, 0.741)
 MATLAB_ORANGE = (0.850, 0.325, 0.098)
@@ -115,15 +121,21 @@ def _dim_v(ax, x, y1, y2, text, side=1):
 
 
 def _front_outline():
-    hw = WIDTH / 2
+    hw = HW
     c = BOTTOM_CHAMFER
+    c2 = BOTTOM_CHAMFER2
+    s2 = C2S
     return [
-        (-hw + c, 0),
-        (hw - c, 0),
-        (hw, c),
+        (-hw + c + c2, 0),
+        (hw - c - c2, 0),
+        (hw - c + s2, s2),
+        (hw - s2, c - s2),
+        (hw, c + c2),
         (hw, HEIGHT),
         (-hw, HEIGHT),
-        (-hw, c),
+        (-hw, c + c2),
+        (-hw + s2, c - s2),
+        (-hw + c - s2, s2),
     ]
 
 
@@ -134,7 +146,8 @@ def draw_front(ax):
     _circle(ax, (0, CENTER_Z), DIAL_BEZEL_D / 2, ec=MATLAB_ORANGE, lw=0.8, ls="--")
     for s in (-1, 1):
         ax.plot([s * SCREW_X, s * SCREW_X], [INNER_TOP, HEIGHT], color=MATLAB_BLUE, lw=1.4)
-        _circle(ax, (s * SCREW_X, HEIGHT - TOP_T / 2), SCREW_D / 2, ec=MATLAB_BLUE, lw=1.0)
+        _circle(ax, (s * SCREW_X, HEIGHT - TOP_T / 2), M4_CLEAR_D / 2, ec=MATLAB_BLUE, lw=1.0)
+        _circle(ax, (s * SCREW_X, CENTER_Z), BOSS_INNER_D / 2, ec=MATLAB_BLUE, lw=0.8, ls=":")
     ax.text(
         0,
         CENTER_Z,
@@ -147,7 +160,7 @@ def draw_front(ax):
     ax.text(
         0,
         HEIGHT + 3,
-        "3 mm screws, L/R of dial, 5 mm top",
+        "M4 wafer  4.5 mm through top  13 mm boss ID",
         ha="center",
         fontsize=8,
         color=MATLAB_BLUE,
@@ -156,7 +169,7 @@ def draw_front(ax):
     _dim_h(ax, -WIDTH / 2, WIDTH / 2, HEIGHT + 10, f"{WIDTH:.0f}")
     _dim_v(ax, -WIDTH / 2 - 10, 0, HEIGHT, f"{HEIGHT:.0f}", side=-1)
     _dim_v(ax, WIDTH / 2 + 8, CENTER_Z - DIAL_HOLE_D / 2, CENTER_Z + DIAL_HOLE_D / 2, "45.2")
-    _dim_h(ax, -WIDTH / 2, -WIDTH / 2 + BOTTOM_CHAMFER, -6, f"{BOTTOM_CHAMFER:.0f} chamfer", side=-1)
+    _dim_h(ax, -HW, -HW + BOTTOM_CHAMFER, -6, f"{BOTTOM_CHAMFER:.0f} + {BOTTOM_CHAMFER2:.0f} chamfer", side=-1)
     ax.set_title("Front  (X-Z)")
     ax.set_xlabel("X")
     ax.set_ylabel("Z")
@@ -171,7 +184,9 @@ def draw_top(ax):
     ax.plot([-DIAL_HOLE_D / 2, DIAL_HOLE_D / 2], [0, 0], color=MATLAB_ORANGE, lw=2.4)
     ax.plot([-DIAL_BEZEL_D / 2, DIAL_BEZEL_D / 2], [-0.8, -0.8], color=MATLAB_ORANGE, lw=1.0, ls="--")
     for s in (-1, 1):
-        _circle(ax, (s * SCREW_X, SCREW_Y), SCREW_D / 2, ec=MATLAB_BLUE, lw=1.5)
+        _circle(ax, (s * SCREW_X, SCREW_Y), M4_CLEAR_D / 2, ec=MATLAB_BLUE, lw=1.5)
+        _circle(ax, (s * SCREW_X, SCREW_Y), BOSS_INNER_D / 2, ec=MATLAB_BLUE, lw=0.8, ls=":")
+        _circle(ax, (s * SCREW_X, SCREW_Y), BOSS_OUTER_D / 2, ec=MATLAB_BLUE, lw=0.8)
         a = np.deg2rad(s * PED_SPLAY)
         x0, y0 = s * PED_SPAN / 2, DEPTH + PED_T / 2
         x1, y1 = x0 + 16 * np.sin(a), y0 + 10 * np.cos(a)
@@ -182,7 +197,7 @@ def draw_top(ax):
             arrowprops=dict(arrowstyle="-|>", color=MATLAB_GREEN, lw=1.4),
         )
         _circle(ax, (x0, y0), PED_HOLE_D / 2, ec=MATLAB_GREEN, lw=1.2)
-    ax.text(0, SCREW_Y + 7, "3 mm screw holes", ha="center", fontsize=8, color=MATLAB_BLUE)
+    ax.text(0, SCREW_Y + 12, "M4  13 mm ID boss  2 mm wall", ha="center", fontsize=8, color=MATLAB_BLUE)
     ax.text(
         0,
         DEPTH + PED_T + 9,
@@ -209,33 +224,19 @@ def draw_right(ax):
     _rect(ax, (0, INNER_TOP), DEPTH, TOP_T, ec=MATLAB_BLUE, lw=1.0, ls="--")
     ax.plot([0, WALL], [CENTER_Z - DIAL_HOLE_D / 2] * 2, color=MATLAB_ORANGE, lw=1.6)
     ax.plot([0, WALL], [CENTER_Z + DIAL_HOLE_D / 2] * 2, color=MATLAB_ORANGE, lw=1.6)
-    y1 = CENTER_Z + BEZEL_R
-    y2 = INNER_TOP
-    ax.add_patch(
-        Rectangle(
-            (WALL, y1),
-            DEPTH - 2 * WALL,
-            y2 - y1,
-            fc=(1.0, 0.85, 0.5, 0.45),
-            ec=MATLAB_ORANGE,
-            lw=0.8,
-            ls="--",
-        )
+    slot = Rectangle(
+        (DEPTH - WALL, CABLE_Z - CABLE_SLOT_H / 2),
+        WALL,
+        CABLE_SLOT_H,
+        fill=False,
+        ec="k",
+        lw=1.4,
     )
-    ax.text(
-        DEPTH / 2,
-        (y1 + y2) / 2,
-        "15 mm USB clearance",
-        ha="center",
-        va="center",
-        fontsize=8,
-        color=MATLAB_ORANGE,
-    )
-    _circle(ax, (DEPTH, CABLE_Z), CABLE_D / 2, ec="k", lw=1.4)
+    ax.add_patch(slot)
     ax.plot([SCREW_Y, SCREW_Y], [INNER_TOP, HEIGHT], color=MATLAB_BLUE, lw=1.4)
+    _circle(ax, (SCREW_Y, INNER_TOP / 2), BOSS_INNER_D / 2, ec=MATLAB_BLUE, lw=0.8, ls=":")
     ax.plot([0, DEPTH], [INNER_TOP, INNER_TOP], color=MATLAB_BLUE, lw=0.6, ls=":")
-    ax.text(DEPTH + PED_T + 2, CABLE_Z, "8 mm\ncable", fontsize=8, va="center", color="k")
-    _dim_v(ax, -9, y1, y2, "15", side=-1)
+    ax.text(DEPTH + PED_T + 2, CABLE_Z, "20 mm\nslot", fontsize=8, va="center", color="k")
     _dim_v(ax, DEPTH + PED_T + 14, 0, HEIGHT, f"{HEIGHT:.0f}")
     _dim_h(ax, 0, DEPTH, HEIGHT + 8, f"{DEPTH:.1f}")
     _dim_v(ax, WALL + 6, INNER_TOP, HEIGHT, "5", side=1)
@@ -250,8 +251,18 @@ def draw_right(ax):
 def draw_back(ax):
     _rect(ax, (-WIDTH / 2, 0), WIDTH, HEIGHT, ec="k", lw=1.4)
     _rect(ax, (-PED_W / 2, CENTER_Z - PED_H / 2), PED_W, PED_H, ec=MATLAB_GREEN, lw=1.5)
-    _circle(ax, (0, CABLE_Z), CABLE_D / 2, ec="k", lw=1.6)
-    ax.text(0, CABLE_Z + 8, "8 mm cable, near top", ha="center", fontsize=8)
+    ax.add_patch(
+        Rectangle(
+            (-CABLE_SLOT_W / 2, CABLE_Z - CABLE_SLOT_H / 2),
+            CABLE_SLOT_W,
+            CABLE_SLOT_H,
+            fill=False,
+            ec="k",
+            lw=1.6,
+            joinstyle="round",
+        )
+    )
+    ax.text(0, CABLE_Z + CABLE_SLOT_H / 2 + 4, "20 x 8 mm slot, round ends", ha="center", fontsize=8)
     for s in (-1, 1):
         _circle(ax, (s * PED_SPAN / 2, CENTER_Z), PED_HOLE_D / 2, ec=MATLAB_GREEN, lw=1.6)
         a = np.deg2rad(s * PED_SPLAY)
@@ -261,7 +272,7 @@ def draw_back(ax):
             xytext=(s * PED_SPAN / 2, CENTER_Z),
             arrowprops=dict(arrowstyle="-|>", color=MATLAB_GREEN, lw=1.3),
         )
-        _circle(ax, (s * SCREW_X, HEIGHT - TOP_T / 2), SCREW_D / 2, ec=MATLAB_BLUE, lw=1.0)
+        _circle(ax, (s * SCREW_X, HEIGHT - TOP_T / 2), M4_CLEAR_D / 2, ec=MATLAB_BLUE, lw=1.0)
     ax.text(
         0,
         CENTER_Z - PED_H / 2 - 7,
@@ -321,10 +332,10 @@ def draw_iso(ax):
     _add_poly(ax, [_box_faces(x0, x1, 0, DEPTH, INNER_TOP, HEIGHT)[4]], (0.2, 0.2, 0.3), 0.45)
     _circ3(ax, (0, 0, CENTER_Z), DIAL_HOLE_D / 2, (0, 1, 0), MATLAB_ORANGE, lw=2.0)
     _circ3(ax, (0, 0, CENTER_Z), DIAL_BEZEL_D / 2, (0, 1, 0), MATLAB_ORANGE, lw=0.8)
-    _circ3(ax, (0, DEPTH, CABLE_Z), CABLE_D / 2, (0, 1, 0), "k", lw=1.6)
+    _circ3(ax, (0, DEPTH, CABLE_Z), CABLE_SLOT_H / 2, (0, 1, 0), "k", lw=1.6)
     for s in (-1, 1):
-        _circ3(ax, (s * SCREW_X, SCREW_Y, HEIGHT), SCREW_D / 2, (0, 0, 1), MATLAB_BLUE, lw=1.6)
-        _circ3(ax, (s * SCREW_X, SCREW_Y, 0), ACCESS_D / 2, (0, 0, 1), "0.25", lw=1.2)
+        _circ3(ax, (s * SCREW_X, SCREW_Y, HEIGHT), M4_CLEAR_D / 2, (0, 0, 1), MATLAB_BLUE, lw=1.6)
+        _circ3(ax, (s * SCREW_X, SCREW_Y, INNER_TOP / 2), BOSS_INNER_D / 2, (0, 0, 1), MATLAB_BLUE, lw=1.0)
         a = np.deg2rad(s * PED_SPLAY)
         nrm = (np.sin(a), np.cos(a), 0.0)
         _circ3(
@@ -374,14 +385,10 @@ def draw_cutaway(ax):
     ]
     _add_poly(ax, faces, (0.93, 0.69, 0.13), 0.35)
     # USB band on the cut face
-    y1 = CENTER_Z + BEZEL_R
-    usb_face = [[(0, WALL, y1), (0, DEPTH - WALL, y1), (0, DEPTH - WALL, INNER_TOP), (0, WALL, INNER_TOP)]]
-    _add_poly(ax, usb_face, MATLAB_ORANGE, 0.45)
     _circ3(ax, (0, 0, CENTER_Z), DIAL_HOLE_D / 2, (0, 1, 0), MATLAB_ORANGE, lw=2.0)
     ax.plot([-SCREW_X, -SCREW_X], [SCREW_Y, SCREW_Y], [0, HEIGHT], color=MATLAB_BLUE, lw=1.4)
-    ax.plot([0, 0], [DEPTH, DEPTH], [CABLE_Z - CABLE_D / 2, CABLE_Z + CABLE_D / 2], color="k", lw=2)
-    ax.text(2, DEPTH / 2, (y1 + INNER_TOP) / 2, "15 mm USB", color=MATLAB_ORANGE, fontsize=8)
-    ax.text(2, SCREW_Y, HEIGHT + 3, "3 mm screw through 5 mm top", color=MATLAB_BLUE, fontsize=8)
+    ax.plot([0, 0], [DEPTH, DEPTH], [CABLE_Z - CABLE_SLOT_H / 2, CABLE_Z + CABLE_SLOT_H / 2], color="k", lw=2)
+    ax.text(2, SCREW_Y, HEIGHT + 3, "M4 through 5 mm top, 13 mm boss", color=MATLAB_BLUE, fontsize=8)
     ax.view_init(elev=18, azim=-40)
     ax.set_box_aspect((WIDTH / 2, DEPTH, HEIGHT))
     ax.set_xlabel("X")
@@ -396,7 +403,7 @@ def main():
     fig.suptitle(
         "M5Stack Dial under-shelf case   "
         f"{WIDTH:.0f} x {DEPTH:.1f} x {HEIGHT:.0f} mm    "
-        "walls 3 mm   top 5 mm   USB gap 15 mm   1 mm rounds   30 mm bottom chamfers",
+        "walls 3 mm   top 5 mm   1 mm rounds   30+10 mm chamfers   M4 bosses   20 mm cable slot",
         fontsize=13,
         fontweight="medium",
         y=0.98,

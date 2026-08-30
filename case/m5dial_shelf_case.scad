@@ -1,6 +1,6 @@
 // M5Stack Dial (SKU K130 / K130-V11) under-shelf case.
 // Units: millimetres. Every edge is a 1 mm round.
-// Print with the TOP face on the bed (accurate 3 mm screw holes).
+// Print with the TOP face on the bed (accurate M4 screw holes).
 // Layer 0.2 mm, 3+ perimeters, 30 % infill. Support the bottom plate.
 
 $fn = 64;
@@ -9,14 +9,18 @@ $fn = 64;
 wall          = 3.0;
 top_t         = 5.0;
 depth         = 2 * 25.4;     // 50.8 mm, 2.00 in
-usb_clear     = 15.0;
 dial_bezel_d  = 51.0;
 dial_hole_d   = 45.2;
 dial_body_d   = 45.0;
 dial_len      = 32.3;
-screw_d       = 3.0;
-access_d      = 10.0;
-cable_d       = 8.0;
+m4_clear_d    = 4.5;          // shank through the 5 mm top
+m4_head_d     = 11.0;         // M4 wafer head (sized large enough)
+boss_inner_extra = 2.0;       // extra inner diameter around the head
+boss_wall     = 2.0;
+boss_inner_d  = m4_head_d + boss_inner_extra;   // 13
+boss_outer_d  = boss_inner_d + 2 * boss_wall;   // 17
+cable_slot_w  = 20.0;
+cable_slot_h  = 8.0;
 ped_t         = 3.0;
 ped_hole_d    = 8.2;
 ped_splay     = 15;
@@ -28,19 +32,22 @@ width         = 86.0;
 screw_x       = 33.0;
 screw_y       = 18.0;
 print_slop    = 0.2;
-edge_r        = 1.0;          // round on every edge
-bottom_chamfer = 30.0;        // 45 deg cut on bottom-left and bottom-right
+edge_r        = 1.0;
+bottom_chamfer  = 30.0;       // 45 deg first cut, bottom-left and bottom-right
+bottom_chamfer2 = 10.0;       // extra chamfer on both edges of each 30 mm cut
 fn_round      = 24;
 eps           = 0.2;
 
 bezel_r   = dial_bezel_d / 2;
 center_z  = wall + bottom_clear + bezel_r;
-inner_top = center_z + bezel_r + usb_clear;
+inner_top = center_z + bezel_r;
 height    = inner_top + top_t;
 inner_w   = width - 2 * wall;
 inner_d   = depth - 2 * wall;
 inner_h   = inner_top - wall;
-cable_z   = inner_top - 3.0 - cable_d / 2;
+cable_z   = inner_top - 3.0 - cable_slot_h / 2;
+hw        = width / 2;
+c2s       = bottom_chamfer2 / sqrt(2);
 
 preview = false;
 cutaway = false;
@@ -69,28 +76,122 @@ module filleted_cyl(d, h, center = false) {
     }
 }
 
+module filleted_slot(w, h, len) {
+    // Stadium: width w, height h, fully round ends, 1 mm edge rounds.
+    minkowski() {
+        hull() {
+            translate([-(w - h) / 2, 0, 0])
+                cylinder(d = max(h - 2 * edge_r, 0.2), h = len);
+            translate([(w - h) / 2, 0, 0])
+                cylinder(d = max(h - 2 * edge_r, 0.2), h = len);
+        }
+        round_r();
+    }
+}
+
+// Compound bottom-corner profile (XZ): 30 mm 45 deg plus extra chamfers
+// of bottom_chamfer2 on the two edges of each 30 mm face.
+module left_chamfer_2d() {
+    c = bottom_chamfer;
+    c2 = bottom_chamfer2;
+    polygon([
+        [-hw - 4, -4],
+        [-hw + c + c2, -4],
+        [-hw + c + c2, 0],
+        [-hw + c - c2s, c2s],
+        [-hw + c2s, c - c2s],
+        [-hw, c + c2],
+        [-hw - 4, c + c2]
+    ]);
+}
+
+module right_chamfer_2d() {
+    c = bottom_chamfer;
+    c2 = bottom_chamfer2;
+    polygon([
+        [hw + 4, -4],
+        [hw - c - c2, -4],
+        [hw - c - c2, 0],
+        [hw - c + c2s, c2s],
+        [hw - c2s, c - c2s],
+        [hw, c + c2],
+        [hw + 4, c + c2]
+    ]);
+}
+
+module chamfer_2d() {
+    union() {
+        left_chamfer_2d();
+        right_chamfer_2d();
+    }
+}
+
+// grow > 0 offsets the cut so an inner cavity keeps `grow` mm of wall.
+module chamfer_cuts(grow = 0) {
+    y0 = -2 - edge_r;
+    len = depth + ped_t + 8 + 2 * edge_r;
+    minkowski() {
+        rotate([90, 0, 0])
+            translate([0, 0, -y0 - len])
+                linear_extrude(len)
+                    if (grow > 0)
+                        offset(r = grow)
+                            chamfer_2d();
+                    else
+                        chamfer_2d();
+        round_r();
+    }
+}
+
+module outer_solid() {
+    difference() {
+        minkowski() {
+            outer_shrunk();
+            round_r();
+        }
+        chamfer_cuts(0);
+    }
+}
+
+module inner_cavity() {
+    difference() {
+        minkowski() {
+            inner_shrunk();
+            round_r();
+        }
+        chamfer_cuts(wall);
+    }
+}
+
 module dial_hole() {
     translate([0, -2, center_z])
         rotate([-90, 0, 0])
             filleted_cyl(dial_hole_d + print_slop, wall + 4);
 }
 
+module screw_bosses() {
+    // Overlap the 5 mm top so the union is not coplanar with the underside.
+    for (s = [-1, 1])
+        translate([s * screw_x, screw_y, 0])
+            cylinder(d = boss_outer_d, h = inner_top + 1);
+}
+
+module screw_head_bores() {
+    for (s = [-1, 1])
+        translate([s * screw_x, screw_y, -4])
+            filleted_cyl(boss_inner_d, inner_top + 2);
+}
+
 module screw_top_holes() {
     for (s = [-1, 1])
         translate([s * screw_x, screw_y, inner_top - 2])
-            filleted_cyl(screw_d, top_t + 4);
+            filleted_cyl(m4_clear_d, top_t + 4);
 }
 
-module screw_bottom_access() {
-    for (s = [-1, 1])
-        translate([s * screw_x, screw_y, -2])
-            filleted_cyl(access_d, wall + 4);
-}
-
-module cable_exit() {
+module cable_slot() {
     translate([0, depth + 2, cable_z])
         rotate([90, 0, 0])
-            filleted_cyl(cable_d, wall + 4);
+            filleted_slot(cable_slot_w, cable_slot_h, wall + 4);
 }
 
 module pedestal_holes() {
@@ -103,45 +204,25 @@ module pedestal_holes() {
     }
 }
 
-// 45 deg prism in +X/+Z, extruded along +Y.
-module corner_chamfer_prism(c, len) {
-    rotate([90, 0, 0])
-        translate([0, 0, -len])
-            linear_extrude(len)
-                polygon([[0, 0], [c, 0], [0, c]]);
-}
-
-// Large chamfers on the two bottom edges left and right of the dial opening.
-// Minkowski keeps the new edges at the 1 mm round.
-module bottom_chamfers() {
-    minkowski() {
-        union() {
-            translate([-width / 2, -2, 0])
-                corner_chamfer_prism(bottom_chamfer, depth + 4);
-            translate([width / 2, -2, 0])
-                mirror([1, 0, 0])
-                    corner_chamfer_prism(bottom_chamfer, depth + 4);
-        }
-        round_r();
-    }
-}
-
 module case_solid() {
     difference() {
-        minkowski() {
-            outer_shrunk();
-            round_r();
-        }
-        minkowski() {
-            inner_shrunk();
-            round_r();
+        union() {
+            difference() {
+                outer_solid();
+                inner_cavity();
+            }
+            // Bosses live in the cavity, trimmed to the outer (chamfered) skin
+            // so they share the 3 mm side wall instead of adding extra OD.
+            intersection() {
+                screw_bosses();
+                outer_solid();
+            }
         }
         dial_hole();
+        screw_head_bores();
         screw_top_holes();
-        screw_bottom_access();
-        cable_exit();
+        cable_slot();
         pedestal_holes();
-        bottom_chamfers();
     }
 }
 
