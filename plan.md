@@ -47,17 +47,17 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
   - [x] Enlarge the circular badge and keep the full `CLI CONTROLLER` label inside it.
   - [x] Re-render, inspect every scene, and open the corrected video.
   - Done: contact-sheet review shows the full badge, audio is present at a suitable level, and the user can view the corrected MP4.
-- [~] README video hero
-  - [ ] Generate a lightweight animated preview from the corrected MP4.
-  - [ ] Place the preview and full-video link above the README introduction.
-  - [ ] Verify GitHub's public rendered README shows the hero and resolves the MP4 link.
+- [x] README video hero
+  - [x] Generate a lightweight animated preview from the corrected MP4.
+  - [x] Place the preview and full-video link above the README introduction.
+  - [x] Verify GitHub's public rendered README shows the hero and resolves the MP4 link.
   - Done: the public repository page displays the animated hero above the fold and its link returns the full video.
-- [~] Printable case documentation
-  - [ ] Add a prominent top-level case link near the README video hero.
-  - [ ] Create a case index and one README for the M5Dial shelf case and one for the VL53L4CD sensor case.
-  - [ ] Retain and document each OpenSCAD, STL, MATLAB, and supporting drawing source.
-  - [ ] Render consistent front, rear, top, side, and isometric images from both STL meshes.
-  - [ ] Regenerate the MATLAB-style mechanical drawing images and verify every local case link.
+- [x] Printable case documentation
+  - [x] Add a prominent top-level case link near the README video hero.
+  - [x] Create a case index and one README for the M5Dial shelf case and one for the VL53L4CD sensor case.
+  - [x] Retain and document each OpenSCAD, STL, MATLAB, and supporting drawing source.
+  - [x] Render consistent front, rear, top, side, and isometric images from both STL meshes.
+  - [x] Regenerate the MATLAB-style mechanical drawing images and verify every local case link.
   - Done: both case guides resolve their model, source, drawing, and multi-angle image links, and the main README links the case index above the fold.
 - [x] Verification and delivery
   - [x] Run documentation link checks, `go test ./...`, Windows build, and firmware build.
@@ -102,3 +102,8 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
 - 2026-08-30: GitHub's Markdown API rendered a native HTML `<video>` block as an empty paragraph, confirming that README video tags are stripped. Selected an animated linked preview plus direct full-video call-to-action.
 - 2026-08-30: User added printable-case documentation and requested the case link near the top of the README.
 - 2026-08-30: Confirmed two STL models: `m5dial_shelf_case.stl` (10,972 faces) and `vl53l4cd_case.stl` (4,136 faces). Both have OpenSCAD, MATLAB, and Python drawing sources; MATLAB/Octave is not installed, while Matplotlib and trimesh are available.
+- 2026-08-30: Added a 14.01-second, 878,602-byte animated hero generated from the corrected MP4 and made the full video and printable cases the two primary calls to action.
+- 2026-08-30: Added `case/README.md` plus dedicated M5Dial and VL53L4CD case guides with downloads, dimensions, print guidance, MATLAB source links, drawing sheets, and six-view STL galleries.
+- 2026-08-30: Added `case/render_stl_views.py` and generated seven consistent STL views per model. Corrected the print-oriented VL53L4CD mesh by rotating height from Y into documentation Z before rendering.
+- 2026-08-30: Regenerated both MATLAB-style drawing sheets from the matching dimensional parameters. Native `.m` sources remain checked in for MATLAB export.
+- 2026-08-30: Recursive documentation link checks, Python source checks, Git diff check, GIF probe, and watertight mesh checks passed. GitHub's Markdown API confirmed hero, MP4, and case links render above the first section.

@@ -298,6 +298,11 @@ try {
     & ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i $concat -c copy -movflags +faststart $OutputPath
     if ($LASTEXITCODE -ne 0) { throw "ffmpeg concat failed" }
     Write-Host "built $OutputPath"
+    $heroPath = Join-Path $imageDir "video-hero.gif"
+    $heroFilter = "[0:v]setpts=PTS/8,fps=8,scale=960:-1:flags=lanczos,split[v0][v1];[v0]palettegen=max_colors=128:stats_mode=diff[p];[v1][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle"
+    & ffmpeg -hide_banner -loglevel error -y -i $OutputPath -filter_complex $heroFilter -loop 0 $heroPath
+    if ($LASTEXITCODE -ne 0) { throw "ffmpeg hero preview failed" }
+    Write-Host "built $heroPath"
 } finally {
     if ((Test-Path -LiteralPath $work) -and $work.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase)) {
         Remove-Item -LiteralPath $work -Recurse -Force

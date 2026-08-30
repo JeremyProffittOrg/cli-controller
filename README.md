@@ -2,11 +2,21 @@
 
 [![build](https://github.com/JeremyProffittOrg/cli-controller/actions/workflows/build.yml/badge.svg)](https://github.com/JeremyProffittOrg/cli-controller/actions/workflows/build.yml)
 
+<p align="center">
+  <a href="docs/cli-controller-how-to.mp4">
+    <img src="docs/images/video-hero.gif" width="960" alt="Animated preview of the CLI Controller user guide">
+  </a>
+</p>
+
+<p align="center">
+  <strong><a href="docs/cli-controller-how-to.mp4">▶ Watch the full narrated user guide</a></strong>
+  &nbsp;·&nbsp;
+  <strong><a href="case/README.md">⬡ Download and print the M5Dial and sensor cases</a></strong>
+</p>
+
 CLI Controller turns an M5Stack Dial into a physical control surface for command-line windows on Windows. Rotate the Dial to choose a CLI window. Press to focus it. Tap the screen to tile or stack all supported CLI windows. Optional knee-distance sensors and a desk-motion sensor add hands-free controls.
 
 Firmware 0.5.0 treats every motion sensor as optional. The Dial, display, encoder, button, and touch controls continue to work when no PCA9548 or sensor is connected.
-
-> [Watch the narrated user how-to video](docs/cli-controller-how-to.mp4) for a quick tour of wiring, setup, and everyday gestures.
 
 ## What it does
 
@@ -457,6 +467,7 @@ powershell -NoProfile -File .\docs\video\build-how-to-video.ps1
 
 ```text
 cmd/cli-controller/       Windows application entry point and preview modes
+case/                     Printable STL/3MF cases, parametric sources, drawings, and model guides
 firmware/                 PlatformIO M5Dial firmware
 internal/app/             Application event loop and action coordination
 internal/config/          Defaults, normalization, load, and save
