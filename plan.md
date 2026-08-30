@@ -1,85 +1,61 @@
-# Leg and desk motion controls
+# README and user how-to video
 
 ## Outcome
 
-Add optional PCA9548-connected VL53L4CD leg sensors and an ADXL345 desk-motion sensor to the M5Dial firmware and Windows application. Flash firmware 0.5.0 to `COM10`, install the application, push `main`, verify GitHub Actions, capture all four settings tabs, and email the screenshots.
+Create an extensive repository README with part and wiring diagrams, runtime flow diagrams, real settings screenshots, installation and use instructions, configuration and protocol references, troubleshooting, and contributor checks. Create a short, fun, narrated MP4 that teaches a user how to connect, configure, and use the controller.
 
-Non-goals: case-design changes, scheduled automation, AWS infrastructure changes, and physical sensor verification before the hardware is available.
+Non-goals: firmware or application behavior changes, new dependencies in the product, case-design changes, physical sensor validation, scheduled automation, and infrastructure changes.
 
 ## Locked decisions (user-confirmed; do not revisit)
 
-- 2026-08-30: Use the Adafruit PCA9548 eight-channel multiplexer.
-- 2026-08-30: Provide both knee modes as selectable settings.
-- 2026-08-30: Default to `arm` (Arm then select).
-- 2026-08-30: In arm mode, a completed left gesture with no right movement activates the current item after the idle delay.
-- 2026-08-30: Provide four configurable ADXL345 directions.
-- 2026-08-30: Verify the no-hardware path now and defer physical gesture validation to `backlog.md`.
-- 2026-08-30: Email one screenshot of every settings tab after deployment.
-- 2026-08-30: Deployment, firmware flashing, installation, required restarts, pushing `main`, and bounded deployment retries are authorized.
+- 2026-08-30: Generate an extensive README with part diagrams, flow diagrams, and screenshots.
+- 2026-08-30: Also build a fun user how-to video.
 
 ## Verified facts
 
-- `C:\dev\cli-controller\deploy.md` specifies deployment only by pushing `main` and watching GitHub Actions.
-- `main` tracks `origin/main`.
-- The worktree has user-owned `case` deletions and untracked case files. They must not be changed or staged.
-- The target firmware port is `COM10`.
-- The GitHub repository is `JeremyProffittOrg/cli-controller`.
-- External M5Dial I2C uses GPIO13 SDA and GPIO15 SCL.
-- PCA9548 is `0x70`; VL53L4CD is `0x29`; ADXL345 is `0x53`.
-
-## Interfaces and defaults
-
-- PCA9548 channels 0-3 host optional VL53L4CD sensors. Channel 4 hosts the optional ADXL345.
-- Protocol version 1 adds `sensor`, `tof`, and `accel` messages without changing existing messages.
-- Knee defaults: mode `arm`, two left raises, right direction `1`, channel 0 Left, channel 1 Right, other channels Off, 75 mm threshold, and 2000 ms activation delay.
-- Desk defaults: disabled, 350 milli-g sensitivity, zero-degree orientation, Left=Tile, Right=Stack, Forward=None, Back=None.
-- Old configuration files remain valid through normalization.
+- `C:\dev\cli-controller\deploy.md` requires delivery through a push to `main` and a terminal GitHub Actions result.
+- The current product is firmware 0.5.0 plus a Windows Go application.
+- M5Dial Port A uses GPIO13 SDA and GPIO15 SCL for the optional external I2C bus.
+- PCA9548 channels 0-3 support VL53L4CD sensors; channel 4 supports ADXL345.
+- The firmware polls VL53L4CD devices at 20 Hz and ADXL345 at 50 Hz.
+- Four verified tab screenshots exist in `C:\Users\Jeremy\AppData\Local\Temp\cli-controller-screenshots`.
+- FFmpeg 8.1.2 and FFprobe are installed.
+- User-owned `case` deletions and untracked case files are present. They must not be changed or staged.
 
 ## Workstreams
 
-- [x] Plan and protocol contract
-  - [x] Create and commit `C:\dev\cli-controller\plan.md` before implementation.
-  - Done command: `Test-Path C:\dev\cli-controller\plan.md`; `git show --stat HEAD` must contain only `plan.md`.
-- [x] Firmware sensor transport
-  - [x] Add isolated external I2C, optional sensor discovery, nonblocking samples and recovery, and firmware 0.5.0.
-  - Done command: `pio run -d C:\dev\cli-controller\firmware`.
-- [x] Host motion engine
-  - [x] Add protocol parsing, normalized configuration, knee filtering/latching/modes, and desk high-pass gesture actions.
-  - Done command: focused Go tests for config, protocol, gesture, and app packages.
-- [x] Four-tab settings dialog
-  - [x] Add Controller, Display, Knees, and Desk native tabs with no-hardware status and unchanged Commit/Abort behavior.
-  - Done command: config round-trip tests and visual inspection of all four tabs.
-- [x] Verification, installation, and delivery
-  - [x] Run all Go and firmware checks, flash and verify COM10, install and verify the application, capture four screenshots, update `backlog.md`, commit and push only task files, watch GitHub Actions to success, and email the screenshots through SES.
-  - Done commands: `go test ./...`; `go build -ldflags="-H windowsgui" -o cli-controller.exe ./cmd/cli-controller`; `pio run -d firmware`; flash and verify scripts; `git diff --check`; `gh run watch <run-id>`; SES send returning a message ID.
+- [x] Plan
+  - [x] Record the documentation and video scope before implementation.
+  - Done: `git show --stat HEAD` contains only `plan.md`.
+- [ ] Documentation assets
+  - [ ] Copy the four verified settings screenshots into `docs/images`.
+  - [ ] Add a reproducible video storyboard and build script without changing product dependencies.
+  - Done: all local README image links resolve and the video builder exits 0.
+- [ ] Extensive README
+  - [ ] Document purpose, features, parts, wiring, setup, controls, knee modes, desk motion, settings tabs, architecture, protocol, configuration, development, troubleshooting, safety, and limitations.
+  - [ ] Use Mermaid for the wiring and runtime flow diagrams and real images for settings screens.
+  - Done: `README.md` has no broken local links and contains all required sections and diagrams.
+- [ ] User how-to video
+  - [ ] Build a narrated 1080p H.264/AAC MP4 with title, system overview, wiring, four settings tabs, gesture use, and closing guidance.
+  - Done: `ffprobe` reports a playable 1920x1080 H.264 video with AAC audio and nonzero duration.
+- [ ] Verification and delivery
+  - [ ] Run documentation link checks, `go test ./...`, Windows build, and firmware build.
+  - [ ] Stage only documentation task files, commit, push `main`, and watch the triggered workflow to success.
+  - Done: local checks pass, `git diff --check` passes, and GitHub Actions concludes `success`.
 
 ## Retry policy
 
-- Firmware upload: three attempts. Re-enumerate COM10 after a transient failure; fix deterministic failures before retry.
-- Installation: two attempts after checking and stopping the installed process.
-- GitHub Actions: three unchanged retries only for transient runner failures. Fix deterministic failures and push a new commit.
-- SES: three bounded attempts with backoff. A delegated send without a message ID fails and requires inline fallback.
+- Video rendering: fix deterministic script or codec errors before retrying; three render attempts maximum.
+- GitHub Actions: retry an unchanged transient runner failure at most three times; fix deterministic failures before pushing again.
 
 ## Stop conditions (only these)
 
-- COM10, GitHub authentication, or SES credentials remain unavailable after bounded recovery.
-- The work requires an unrelated destructive data change or a material scope expansion.
-- A required external service or runner remains unavailable after its retry ceiling.
+- A required codec or media tool remains unavailable after a reversible fallback.
+- Delivery requires unrelated destructive work or a material scope expansion.
+- GitHub authentication or required runners remain unavailable after the retry ceiling.
 
 ## Execution log
 
-- 2026-08-30: Read `C:\dev\cli-controller\deploy.md`; confirmed GitHub Actions on `main` is the only deployment path.
-- 2026-08-30: `git status --short --branch` confirmed only the listed user-owned `case` changes before task work.
-- 2026-08-30: Commit `7f58fe5` added only `plan.md`.
-- 2026-08-30: `go test ./internal/config ./internal/protocol ./internal/motion ./internal/settings ./internal/app` passed after host and settings implementation.
-- 2026-08-30: `pio run -d firmware` succeeded for firmware 0.5.0; RAM use 8.6%, flash use 17.7%.
-- 2026-08-30: `go test ./...`, Windows GUI build, and the final incremental firmware build passed.
-- 2026-08-30: `scripts/flash-dial.ps1 -Port COM10` succeeded on the first attempt.
-- 2026-08-30: Dial verification reported `FIRMWARE_HELLO={"v":1,"t":"hello","fw":"0.5.0","dev":"cli-dial"}`, `PANICS_AFTER_STATE=0`, and `REBOOTS_AFTER_STATE=0`.
-- 2026-08-30: `scripts/install.ps1` installed `C:\Users\Jeremy\AppData\Local\Programs\cli-controller\cli-controller.exe`; process 36288 is running and the application log records `connected COM10`.
-- 2026-08-30: Visually verified complete, unclipped Controller, Display, Knees, and Desk tabs. Screenshots are in `C:\Users\Jeremy\AppData\Local\Temp\cli-controller-screenshots`.
-- 2026-08-30: Added physical hardware and gesture validation only to `backlog.md`.
-- 2026-08-30: Pushed `main` at `6dcaf263f139055bcaeffa3feca0742dbb753db6`.
-- 2026-08-30: GitHub Actions run `33333740869` concluded `success`; firmware job `99316828577` and windows-app job `99316828640` both passed.
-- 2026-08-30: The delegated SES sender failed without sending because its MIME message lacked `From`; the required inline fallback corrected the MIME headers and CLI input format.
-- 2026-08-30: SES accepted the HTML status email with all four screenshots. Message ID: `010001a054656d38-43baf1e0-2ef4-4c72-82a1-ebf817247b29-000000`.
+- 2026-08-30: Read `deploy.md`, the workflow, firmware, configuration, motion engine, protocol, installation scripts, and preview entry points.
+- 2026-08-30: Confirmed FFmpeg 8.1.2, FFprobe, and all four screenshot sources.
+- 2026-08-30: Confirmed the pre-existing user-owned `case` work remains outside task scope.
