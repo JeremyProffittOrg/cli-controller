@@ -18,6 +18,26 @@ CLI Controller turns an M5Stack Dial into a physical control surface for command
 
 Firmware 0.5.0 treats every motion sensor as optional. The Dial, display, encoder, button, and touch controls continue to work when no PCA9548 or sensor is connected.
 
+## M5Stack Dial hardware
+
+<p align="center">
+  <a href="https://docs.m5stack.com/en/core/M5Dial">
+    <img src="https://static-cdn.m5stack.com/resource/docs/products/core/M5Dial/img-25a09e85-7d7b-4f34-abab-c8fa97f55b8f.webp" width="31%" alt="M5Stack Dial angled front product photo">
+  </a>
+  <a href="https://docs.m5stack.com/en/core/M5Dial">
+    <img src="https://static-cdn.m5stack.com/resource/docs/products/core/M5Dial/img-d99f4115-0a49-4a2e-8637-2c2214830959.webp" width="31%" alt="M5Stack Dial rear ports and StampS3 product photo">
+  </a>
+  <a href="https://docs.m5stack.com/en/core/M5Dial">
+    <img src="https://static-cdn.m5stack.com/resource/docs/products/core/M5Dial/img-2afd549e-8af8-47b4-823a-e90e063a0139.webp" width="31%" alt="M5Stack Dial official feature overview">
+  </a>
+</p>
+
+<p align="center">
+  <strong><a href="https://docs.m5stack.com/en/core/M5Dial">Open the official M5Stack Dial product documentation →</a></strong>
+</p>
+
+The M5Dial combines a 1.28-inch circular touch display, rotary encoder, M5StampS3 controller, USB-C, RFID, RTC, buzzer, and external Port A and Port B connectors. Product photos above are served by M5Stack's official CDN and link to the official M5Dial page.
+
 ## What it does
 
 - Finds supported CLI windows without including browsers.
