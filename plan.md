@@ -82,3 +82,5 @@ Non-goals: firmware or application behavior changes, new dependencies in the pro
 - 2026-08-30: Re-rendered all eight scenes. Corrected MP4 is 112.435 seconds and 3,865,384 bytes; measured audio is -16.3 dB mean and -1.5 dB peak.
 - 2026-08-30: Contact-sheet and individual Desk/final-frame review confirmed the badge is fully readable. Opened the corrected MP4 in the default Windows player.
 - 2026-08-30: PowerShell parser, README local-link check, `git diff --check`, and media probes passed.
+- 2026-08-30: Commit `efb2583b062934b17563192b69ffb07e3392d291` replaced the narration, fixed the badge, updated the builder and README, and replaced the MP4.
+- 2026-08-30: GitHub Actions run `33335532130` concluded `success`; firmware job `99321638360` and windows-app job `99321638522` passed. The Windows job emitted a non-fatal setup-go cache warning after its tests, build, and artifact upload succeeded.
