@@ -8,6 +8,7 @@ import (
 
 	"github.com/JeremyProffittOrg/cli-controller/internal/applog"
 	"github.com/JeremyProffittOrg/cli-controller/internal/config"
+	"github.com/JeremyProffittOrg/cli-controller/internal/motion"
 	"github.com/JeremyProffittOrg/cli-controller/internal/overlay"
 	"github.com/JeremyProffittOrg/cli-controller/internal/protocol"
 	"github.com/JeremyProffittOrg/cli-controller/internal/serial"
@@ -35,6 +36,8 @@ type App struct {
 	msgs      []protocol.DeviceMsg
 	conns     []connEv
 	mutex     windows.Handle
+	motion    *motion.Engine
+	sensorOK  [5]bool
 }
 
 type connEv struct {
@@ -118,7 +121,7 @@ func Run() error {
 	if err != nil {
 		return err
 	}
-	a := &App{cfg: cfg, log: logger, mutex: mh}
+	a := &App{cfg: cfg, log: logger, mutex: mh, motion: motion.New(cfg)}
 	inst = a
 	win32.FreeConsole()
 	if err := win32.RegisterClass("CLIDialHost", hostCB, 0); err != nil {
@@ -183,6 +186,7 @@ func hostProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 		switch wParam {
 		case 1:
 			inst.tray.Tick()
+			inst.applyMotion(inst.motion.Tick(time.Now()))
 		case 2:
 			if inst.connected {
 				inst.sendState()
@@ -258,6 +262,13 @@ func (a *App) handleConn(ok bool, info serial.PortInfo) {
 		a.log.Printf("disconnected")
 		a.stopDwell()
 		a.overlay.Hide()
+		for ch := range a.sensorOK {
+			a.sensorOK[ch] = false
+			if ch < 4 {
+				a.applyMotion(a.motion.Connected(ch, false))
+			}
+		}
+		a.settings.SetSensorStatus(a.sensorOK)
 	}
 }
 
@@ -270,6 +281,42 @@ func (a *App) handleMsg(m protocol.DeviceMsg) {
 	case "btn":
 		if m.ID == "a" {
 			a.activate()
+		}
+	case "sensor":
+		if m.Ch >= 0 && m.Ch < len(a.sensorOK) {
+			a.sensorOK[m.Ch] = m.OK
+			if m.Ch < 4 {
+				a.applyMotion(a.motion.Connected(m.Ch, m.OK))
+			}
+			a.settings.SetSensorStatus(a.sensorOK)
+		}
+	case "tof":
+		a.applyMotion(a.motion.Distance(m.Ch, m.MM, time.Now()))
+	case "accel":
+		if m.Ch == 4 {
+			a.applyMotion(a.motion.Accel(m.X, m.Y, m.Z, time.Now()))
+		}
+	}
+}
+
+func (a *App) applyMotion(events []motion.Event) {
+	for _, event := range events {
+		switch event.Kind {
+		case motion.Show:
+			a.refresh()
+			a.showOverlay()
+			a.sendState()
+		case motion.Move:
+			a.refresh()
+			a.sel = overlay.Step(len(a.list)+1, a.sel, event.Delta)
+			a.showOverlay()
+			a.sendState()
+		case motion.Activate:
+			a.activate()
+		case motion.Tile:
+			a.onTap("tile")
+		case motion.Stack:
+			a.onTap("stack")
 		}
 	}
 }
@@ -363,12 +410,14 @@ func (a *App) openSettings() {
 	if err != nil {
 		ports = nil
 	}
+	a.settings.SetSensorStatus(a.sensorOK)
 	a.settings.Show(a.cfg, ports)
 }
 
 func (a *App) saveSettings(cfg config.Config) {
 	portChanged := cfg.PortMode != a.cfg.PortMode || cfg.Port != a.cfg.Port
 	a.cfg = cfg
+	a.motion.Configure(cfg)
 	if err := config.Save(cfg); err != nil {
 		a.log.Printf("save config: %v", err)
 	}

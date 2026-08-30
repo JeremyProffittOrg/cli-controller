@@ -10,14 +10,21 @@ import (
 const MaxLine = 512
 
 type DeviceMsg struct {
-	V    int    `json:"v"`
-	T    string `json:"t"`
-	FW   string `json:"fw,omitempty"`
-	Dev  string `json:"dev,omitempty"`
-	D    int    `json:"d,omitempty"`
-	ID   string `json:"id,omitempty"`
-	Raw  string `json:"-"`
-	Hello bool  `json:"-"`
+	V     int    `json:"v"`
+	T     string `json:"t"`
+	FW    string `json:"fw,omitempty"`
+	Dev   string `json:"dev,omitempty"`
+	D     int    `json:"d,omitempty"`
+	ID    string `json:"id,omitempty"`
+	Ch    int    `json:"ch,omitempty"`
+	Kind  string `json:"kind,omitempty"`
+	OK    bool   `json:"ok,omitempty"`
+	MM    int    `json:"mm,omitempty"`
+	X     int    `json:"x,omitempty"`
+	Y     int    `json:"y,omitempty"`
+	Z     int    `json:"z,omitempty"`
+	Raw   string `json:"-"`
+	Hello bool   `json:"-"`
 }
 
 type HostMsg struct {

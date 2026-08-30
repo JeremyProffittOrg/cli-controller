@@ -43,11 +43,11 @@ Non-goals: case-design changes, scheduled automation, AWS infrastructure changes
 - [ ] Firmware sensor transport
   - [ ] Add isolated external I2C, optional sensor discovery, nonblocking samples and recovery, and firmware 0.5.0.
   - Done command: `pio run -d C:\dev\cli-controller\firmware`.
-- [ ] Host motion engine
-  - [ ] Add protocol parsing, normalized configuration, knee filtering/latching/modes, and desk high-pass gesture actions.
+- [x] Host motion engine
+  - [x] Add protocol parsing, normalized configuration, knee filtering/latching/modes, and desk high-pass gesture actions.
   - Done command: focused Go tests for config, protocol, gesture, and app packages.
-- [ ] Four-tab settings dialog
-  - [ ] Add Controller, Display, Knees, and Desk native tabs with no-hardware status and unchanged Commit/Abort behavior.
+- [x] Four-tab settings dialog
+  - [x] Add Controller, Display, Knees, and Desk native tabs with no-hardware status and unchanged Commit/Abort behavior.
   - Done command: config round-trip tests and visual inspection of all four tabs.
 - [ ] Verification, installation, and delivery
   - [ ] Run all Go and firmware checks, flash and verify COM10, install and verify the application, capture four screenshots, update `backlog.md`, commit and push only task files, watch GitHub Actions to success, and email the screenshots through SES.
@@ -70,3 +70,6 @@ Non-goals: case-design changes, scheduled automation, AWS infrastructure changes
 
 - 2026-08-30: Read `C:\dev\cli-controller\deploy.md`; confirmed GitHub Actions on `main` is the only deployment path.
 - 2026-08-30: `git status --short --branch` confirmed only the listed user-owned `case` changes before task work.
+- 2026-08-30: Commit `7f58fe5` added only `plan.md`.
+- 2026-08-30: `go test ./internal/config ./internal/protocol ./internal/motion ./internal/settings ./internal/app` passed after host and settings implementation.
+- 2026-08-30: `pio run -d firmware` succeeded for firmware 0.5.0; RAM use 8.6%, flash use 17.7%.

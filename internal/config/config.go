@@ -8,15 +8,31 @@ import (
 
 type Brands map[string]bool
 
+type KneeChannel struct {
+	Role        string `json:"role"`
+	ThresholdMM int    `json:"thresholdMm"`
+}
+
 type Config struct {
-	PortMode    string `json:"portMode"`
-	Port        string `json:"port"`
-	LastSerial  string `json:"lastSerial"`
-	DwellMs     int    `json:"dwellMs"`
-	OverlayView      string `json:"overlayView"`
-	OverlayTheme     string `json:"overlayTheme"`
-	DisplayRotation  int    `json:"displayRotation"`
-	Brands           Brands `json:"brands"`
+	PortMode           string        `json:"portMode"`
+	Port               string        `json:"port"`
+	LastSerial         string        `json:"lastSerial"`
+	DwellMs            int           `json:"dwellMs"`
+	OverlayView        string        `json:"overlayView"`
+	OverlayTheme       string        `json:"overlayTheme"`
+	DisplayRotation    int           `json:"displayRotation"`
+	Brands             Brands        `json:"brands"`
+	KneeMode           string        `json:"kneeMode"`
+	KneeLeftRaises     int           `json:"kneeLeftRaises"`
+	KneeRightDirection int           `json:"kneeRightDirection"`
+	KneeChannels       []KneeChannel `json:"kneeChannels"`
+	DeskEnabled        bool          `json:"deskEnabled"`
+	DeskSensitivityMg  int           `json:"deskSensitivityMg"`
+	DeskOrientation    int           `json:"deskOrientation"`
+	DeskLeft           string        `json:"deskLeft"`
+	DeskRight          string        `json:"deskRight"`
+	DeskForward        string        `json:"deskForward"`
+	DeskBack           string        `json:"deskBack"`
 }
 
 func BrandNames() []string {
@@ -33,14 +49,30 @@ func DefaultBrands() Brands {
 
 func Default() Config {
 	return Config{
-		PortMode:    "auto",
-		Port:        "",
-		LastSerial:  "",
-		DwellMs:     2000,
-		OverlayView:     "classic",
-		OverlayTheme:    "neon-core",
-		DisplayRotation: 0,
-		Brands:          DefaultBrands(),
+		PortMode:           "auto",
+		Port:               "",
+		LastSerial:         "",
+		DwellMs:            2000,
+		OverlayView:        "classic",
+		OverlayTheme:       "neon-core",
+		DisplayRotation:    0,
+		Brands:             DefaultBrands(),
+		KneeMode:           "arm",
+		KneeLeftRaises:     2,
+		KneeRightDirection: 1,
+		KneeChannels: []KneeChannel{
+			{Role: "left", ThresholdMM: 75},
+			{Role: "right", ThresholdMM: 75},
+			{Role: "off", ThresholdMM: 75},
+			{Role: "off", ThresholdMM: 75},
+		},
+		DeskEnabled:       false,
+		DeskSensitivityMg: 350,
+		DeskOrientation:   0,
+		DeskLeft:          "tile",
+		DeskRight:         "stack",
+		DeskForward:       "none",
+		DeskBack:          "none",
 	}
 }
 
@@ -87,7 +119,7 @@ func (c *Config) Normalize() {
 	if c.PortMode != "manual" {
 		c.PortMode = "auto"
 	}
-	if c.DwellMs <= 0 {
+	if !validDwell(c.DwellMs) {
 		c.DwellMs = 2000
 	}
 	if c.OverlayView != "graphical" {
@@ -100,6 +132,40 @@ func (c *Config) Normalize() {
 	if c.DisplayRotation < 0 {
 		c.DisplayRotation += 360
 	}
+	if c.KneeMode != "confirm" {
+		c.KneeMode = "arm"
+	}
+	if c.KneeLeftRaises < 1 || c.KneeLeftRaises > 3 {
+		c.KneeLeftRaises = 2
+	}
+	if c.KneeRightDirection != -1 {
+		c.KneeRightDirection = 1
+	}
+	defaults := Default().KneeChannels
+	channels := make([]KneeChannel, 4)
+	for i := range channels {
+		channels[i] = defaults[i]
+		if i < len(c.KneeChannels) {
+			channels[i] = c.KneeChannels[i]
+		}
+		if channels[i].Role != "left" && channels[i].Role != "right" && channels[i].Role != "off" {
+			channels[i].Role = defaults[i].Role
+		}
+		if channels[i].ThresholdMM < 10 || channels[i].ThresholdMM > 300 {
+			channels[i].ThresholdMM = 75
+		}
+	}
+	c.KneeChannels = channels
+	if c.DeskSensitivityMg < 50 || c.DeskSensitivityMg > 2000 {
+		c.DeskSensitivityMg = 350
+	}
+	if c.DeskOrientation != 0 && c.DeskOrientation != 90 && c.DeskOrientation != 180 && c.DeskOrientation != 270 {
+		c.DeskOrientation = 0
+	}
+	c.DeskLeft = normalizeAction(c.DeskLeft, "tile")
+	c.DeskRight = normalizeAction(c.DeskRight, "stack")
+	c.DeskForward = normalizeAction(c.DeskForward, "none")
+	c.DeskBack = normalizeAction(c.DeskBack, "none")
 	if c.Brands == nil {
 		c.Brands = DefaultBrands()
 		return
@@ -109,6 +175,22 @@ func (c *Config) Normalize() {
 			c.Brands[n] = true
 		}
 	}
+}
+
+func validDwell(ms int) bool {
+	for _, allowed := range []int{250, 500, 750, 1000, 1500, 2000} {
+		if ms == allowed {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeAction(action, fallback string) string {
+	if action == "none" || action == "tile" || action == "stack" {
+		return action
+	}
+	return fallback
 }
 
 func Load() (Config, error) {

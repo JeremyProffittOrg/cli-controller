@@ -8,43 +8,44 @@ import (
 )
 
 const (
-	WS_POPUP          = 0x80000000
-	WS_VISIBLE        = 0x10000000
-	WS_CAPTION        = 0x00C00000
-	WS_SYSMENU        = 0x00080000
-	WS_CHILD          = 0x40000000
-	WS_TABSTOP        = 0x00010000
+	WS_POPUP            = 0x80000000
+	WS_VISIBLE          = 0x10000000
+	WS_CAPTION          = 0x00C00000
+	WS_SYSMENU          = 0x00080000
+	WS_CHILD            = 0x40000000
+	WS_TABSTOP          = 0x00010000
 	WS_OVERLAPPEDWINDOW = 0x00CF0000
 
-	WS_EX_LAYERED     = 0x00080000
-	WS_EX_TOPMOST     = 0x00000008
-	WS_EX_TOOLWINDOW  = 0x00000080
-	WS_EX_NOACTIVATE  = 0x08000000
-	WS_EX_APPWINDOW   = 0x00040000
-	WS_EX_CLIENTEDGE  = 0x00000200
+	WS_EX_LAYERED    = 0x00080000
+	WS_EX_TOPMOST    = 0x00000008
+	WS_EX_TOOLWINDOW = 0x00000080
+	WS_EX_NOACTIVATE = 0x08000000
+	WS_EX_APPWINDOW  = 0x00040000
+	WS_EX_CLIENTEDGE = 0x00000200
 
-	WM_DESTROY       = 0x0002
-	WM_CLOSE         = 0x0010
-	WM_PAINT         = 0x000F
-	WM_COMMAND       = 0x0111
-	WM_TIMER         = 0x0113
-	WM_RBUTTONUP     = 0x0205
-	WM_LBUTTONDOWN   = 0x0201
-	WM_LBUTTONUP     = 0x0202
-	WM_MOUSEMOVE     = 0x0200
-	MK_LBUTTON       = 0x0001
-	WM_CONTEXTMENU   = 0x007B
-	WM_APP           = 0x8000
-	WM_USER          = 0x0400
-	WM_QUIT          = 0x0012
-	WM_SETFONT       = 0x0030
-	WM_ERASEBKGND       = 0x0014
-	WM_CTLCOLOREDIT     = 0x0133
-	WM_CTLCOLORLISTBOX  = 0x0134
-	WM_CTLCOLORBTN      = 0x0135
-	WM_CTLCOLORSTATIC = 0x0138
-	CBN_SELCHANGE       = 1
-	HALFTONE            = 4
+	WM_DESTROY         = 0x0002
+	WM_CLOSE           = 0x0010
+	WM_PAINT           = 0x000F
+	WM_COMMAND         = 0x0111
+	WM_NOTIFY          = 0x004E
+	WM_TIMER           = 0x0113
+	WM_RBUTTONUP       = 0x0205
+	WM_LBUTTONDOWN     = 0x0201
+	WM_LBUTTONUP       = 0x0202
+	WM_MOUSEMOVE       = 0x0200
+	MK_LBUTTON         = 0x0001
+	WM_CONTEXTMENU     = 0x007B
+	WM_APP             = 0x8000
+	WM_USER            = 0x0400
+	WM_QUIT            = 0x0012
+	WM_SETFONT         = 0x0030
+	WM_ERASEBKGND      = 0x0014
+	WM_CTLCOLOREDIT    = 0x0133
+	WM_CTLCOLORLISTBOX = 0x0134
+	WM_CTLCOLORBTN     = 0x0135
+	WM_CTLCOLORSTATIC  = 0x0138
+	CBN_SELCHANGE      = 1
+	HALFTONE           = 4
 
 	SW_HIDE            = 0
 	SW_SHOW            = 5
@@ -52,12 +53,12 @@ const (
 	SW_RESTORE         = 9
 	SW_SHOWMINNOACTIVE = 7
 
-	SWP_NOSIZE         = 0x0001
-	SWP_NOMOVE         = 0x0002
-	SWP_NOZORDER       = 0x0004
-	SWP_NOACTIVATE     = 0x0010
-	SWP_SHOWWINDOW     = 0x0040
-	SWP_HIDEWINDOW     = 0x0080
+	SWP_NOSIZE     = 0x0001
+	SWP_NOMOVE     = 0x0002
+	SWP_NOZORDER   = 0x0004
+	SWP_NOACTIVATE = 0x0010
+	SWP_SHOWWINDOW = 0x0040
+	SWP_HIDEWINDOW = 0x0080
 
 	HWND_TOPMOST = ^uintptr(0) // -1
 	HWND_TOP     = 0
@@ -71,12 +72,12 @@ const (
 	WHITE_BRUSH  = 0
 	NULL_BRUSH   = 5
 
-	DT_LEFT     = 0x0000
-	DT_CENTER   = 0x0001
-	DT_RIGHT    = 0x0002
-	DT_VCENTER  = 0x0004
-	DT_SINGLELINE = 0x0020
-	DT_NOPREFIX = 0x0800
+	DT_LEFT         = 0x0000
+	DT_CENTER       = 0x0001
+	DT_RIGHT        = 0x0002
+	DT_VCENTER      = 0x0004
+	DT_SINGLELINE   = 0x0020
+	DT_NOPREFIX     = 0x0800
 	DT_END_ELLIPSIS = 0x00008000
 
 	TRANSPARENT = 1
@@ -93,7 +94,7 @@ const (
 	NIM_MODIFY = 1
 	NIM_DELETE = 2
 
-	NIIF_INFO  = 0x00000001
+	NIIF_INFO    = 0x00000001
 	NIIF_NOSOUND = 0x00000010
 
 	TPM_RIGHTBUTTON = 0x0002
@@ -102,18 +103,18 @@ const (
 	TPM_RETURNCMD   = 0x0100
 	TPM_NONOTIFY    = 0x0080
 
-	MF_STRING = 0x0000
+	MF_STRING    = 0x0000
 	MF_SEPARATOR = 0x0800
 
-	BS_AUTOCHECKBOX = 0x00000003
+	BS_AUTOCHECKBOX  = 0x00000003
 	BS_DEFPUSHBUTTON = 0x00000001
-	BS_PUSHBUTTON   = 0x00000000
+	BS_PUSHBUTTON    = 0x00000000
 	CBS_DROPDOWNLIST = 0x0003
-	CBS_HASSTRINGS  = 0x0200
+	CBS_HASSTRINGS   = 0x0200
 
 	CW_USEDEFAULT = ^int32(0x7fffffff) + 1 // -2147483648 as int32 via bit
 
-	MONITOR_DEFAULTTOPRIMARY  = 1
+	MONITOR_DEFAULTTOPRIMARY = 1
 	MONITOR_DEFAULTTONEAREST = 2
 	MONITORINFOF_PRIMARY     = 1
 
@@ -127,48 +128,75 @@ const (
 	IDOK     = 1
 	IDCANCEL = 2
 
-	CB_ADDSTRING = 0x0143
-	CB_SETCURSEL = 0x014E
-	CB_GETCURSEL = 0x0147
-	CB_GETLBTEXT = 0x0148
+	CB_ADDSTRING    = 0x0143
+	CB_SETCURSEL    = 0x014E
+	CB_GETCURSEL    = 0x0147
+	CB_GETLBTEXT    = 0x0148
 	CB_RESETCONTENT = 0x014B
+	TCM_FIRST       = 0x1300
+	TCM_INSERTITEMW = TCM_FIRST + 62
+	TCM_GETCURSEL   = TCM_FIRST + 11
+	TCN_SELCHANGE   = -551
+	TCIF_TEXT       = 0x0001
+	ICC_TAB_CLASSES = 0x00000008
 
-	BM_GETCHECK = 0x00F0
-	BM_SETCHECK = 0x00F1
-	BST_CHECKED = 1
+	BM_GETCHECK   = 0x00F0
+	BM_SETCHECK   = 0x00F1
+	BST_CHECKED   = 1
 	BST_UNCHECKED = 0
 
-	DEFAULT_GUI_FONT = 17
-	FW_NORMAL = 400
-	FW_BOLD   = 700
-	ANSI_CHARSET = 0
-	OUT_TT_PRECIS = 4
+	DEFAULT_GUI_FONT    = 17
+	FW_NORMAL           = 400
+	FW_BOLD             = 700
+	ANSI_CHARSET        = 0
+	OUT_TT_PRECIS       = 4
 	CLIP_DEFAULT_PRECIS = 0
-	DEFAULT_QUALITY = 0
-	FF_DONTCARE = 0
+	DEFAULT_QUALITY     = 0
+	FF_DONTCARE         = 0
 
-	SRCCOPY = 0x00CC0020
-	BI_RGB  = 0
+	SRCCOPY        = 0x00CC0020
+	BI_RGB         = 0
 	DIB_RGB_COLORS = 0
 
-	WM_TRAY        = WM_APP + 1
-	WM_SET_OVERLAY = WM_APP + 2
-	WM_HIDE_OVERLAY = WM_APP + 3
-	WM_CONN        = WM_APP + 4
+	WM_TRAY          = WM_APP + 1
+	WM_SET_OVERLAY   = WM_APP + 2
+	WM_HIDE_OVERLAY  = WM_APP + 3
+	WM_CONN          = WM_APP + 4
 	WM_OPEN_SETTINGS = WM_APP + 5
-	WM_APPLY_FOCUS = WM_APP + 6
-	WM_APPLY_TILE  = WM_APP + 7
-	WM_APPLY_STACK = WM_APP + 8
-	WM_REFRESH     = WM_APP + 9
-	WM_ENC         = WM_APP + 10
-	WM_TAP         = WM_APP + 11
-	WM_BTN         = WM_APP + 12
-	WM_DWELL       = WM_APP + 13
-	WM_EXIT        = WM_APP + 14
+	WM_APPLY_FOCUS   = WM_APP + 6
+	WM_APPLY_TILE    = WM_APP + 7
+	WM_APPLY_STACK   = WM_APP + 8
+	WM_REFRESH       = WM_APP + 9
+	WM_ENC           = WM_APP + 10
+	WM_TAP           = WM_APP + 11
+	WM_BTN           = WM_APP + 12
+	WM_DWELL         = WM_APP + 13
+	WM_EXIT          = WM_APP + 14
 )
 
 type POINT struct {
 	X, Y int32
+}
+
+type NMHDR struct {
+	HwndFrom windows.Handle
+	IDFrom   uintptr
+	Code     int32
+}
+
+type TCITEM struct {
+	Mask      uint32
+	State     uint32
+	StateMask uint32
+	Text      *uint16
+	TextMax   int32
+	Image     int32
+	Param     uintptr
+}
+
+type INITCOMMONCONTROLSEX struct {
+	Size uint32
+	ICC  uint32
 }
 
 type RECT struct {
@@ -266,99 +294,101 @@ var (
 	modShell32  = windows.NewLazySystemDLL("shell32.dll")
 	modKernel32 = windows.NewLazySystemDLL("kernel32.dll")
 	modMsimg32  = windows.NewLazySystemDLL("msimg32.dll")
+	modComctl32 = windows.NewLazySystemDLL("comctl32.dll")
 
-	procRegisterClassExW     = modUser32.NewProc("RegisterClassExW")
-	procCreateWindowExW      = modUser32.NewProc("CreateWindowExW")
-	procDestroyWindow        = modUser32.NewProc("DestroyWindow")
-	procDefWindowProcW       = modUser32.NewProc("DefWindowProcW")
-	procShowWindow           = modUser32.NewProc("ShowWindow")
-	procUpdateWindow         = modUser32.NewProc("UpdateWindow")
-	procInvalidateRect       = modUser32.NewProc("InvalidateRect")
-	procGetMessageW          = modUser32.NewProc("GetMessageW")
-	procPeekMessageW         = modUser32.NewProc("PeekMessageW")
-	procTranslateMessage     = modUser32.NewProc("TranslateMessage")
-	procDispatchMessageW     = modUser32.NewProc("DispatchMessageW")
-	procPostMessageW         = modUser32.NewProc("PostMessageW")
-	procPostQuitMessage      = modUser32.NewProc("PostQuitMessage")
-	procSetTimer             = modUser32.NewProc("SetTimer")
-	procKillTimer            = modUser32.NewProc("KillTimer")
-	procBeginPaint           = modUser32.NewProc("BeginPaint")
-	procEndPaint             = modUser32.NewProc("EndPaint")
-	procFillRect             = modUser32.NewProc("FillRect")
-	procDrawTextW            = modUser32.NewProc("DrawTextW")
-	procSetWindowPos         = modUser32.NewProc("SetWindowPos")
+	procRegisterClassExW           = modUser32.NewProc("RegisterClassExW")
+	procCreateWindowExW            = modUser32.NewProc("CreateWindowExW")
+	procDestroyWindow              = modUser32.NewProc("DestroyWindow")
+	procDefWindowProcW             = modUser32.NewProc("DefWindowProcW")
+	procShowWindow                 = modUser32.NewProc("ShowWindow")
+	procUpdateWindow               = modUser32.NewProc("UpdateWindow")
+	procInvalidateRect             = modUser32.NewProc("InvalidateRect")
+	procGetMessageW                = modUser32.NewProc("GetMessageW")
+	procPeekMessageW               = modUser32.NewProc("PeekMessageW")
+	procTranslateMessage           = modUser32.NewProc("TranslateMessage")
+	procDispatchMessageW           = modUser32.NewProc("DispatchMessageW")
+	procPostMessageW               = modUser32.NewProc("PostMessageW")
+	procPostQuitMessage            = modUser32.NewProc("PostQuitMessage")
+	procSetTimer                   = modUser32.NewProc("SetTimer")
+	procKillTimer                  = modUser32.NewProc("KillTimer")
+	procBeginPaint                 = modUser32.NewProc("BeginPaint")
+	procEndPaint                   = modUser32.NewProc("EndPaint")
+	procFillRect                   = modUser32.NewProc("FillRect")
+	procDrawTextW                  = modUser32.NewProc("DrawTextW")
+	procSetWindowPos               = modUser32.NewProc("SetWindowPos")
 	procSetLayeredWindowAttributes = modUser32.NewProc("SetLayeredWindowAttributes")
-	procGetWindowRect        = modUser32.NewProc("GetWindowRect")
-	procGetClientRect        = modUser32.NewProc("GetClientRect")
-	procEnumWindows          = modUser32.NewProc("EnumWindows")
-	procIsWindowVisible      = modUser32.NewProc("IsWindowVisible")
-	procIsIconic             = modUser32.NewProc("IsIconic")
-	procGetWindowTextW       = modUser32.NewProc("GetWindowTextW")
-	procGetWindowTextLengthW = modUser32.NewProc("GetWindowTextLengthW")
-	procGetWindowThreadProcessId = modUser32.NewProc("GetWindowThreadProcessId")
-	procGetClassNameW        = modUser32.NewProc("GetClassNameW")
-	procSetForegroundWindow  = modUser32.NewProc("SetForegroundWindow")
-	procBringWindowToTop     = modUser32.NewProc("BringWindowToTop")
-	procGetForegroundWindow  = modUser32.NewProc("GetForegroundWindow")
-	procAttachThreadInput    = modUser32.NewProc("AttachThreadInput")
-	procAllowSetForegroundWindow = modUser32.NewProc("AllowSetForegroundWindow")
-	procEnumDisplayMonitors  = modUser32.NewProc("EnumDisplayMonitors")
-	procGetMonitorInfoW      = modUser32.NewProc("GetMonitorInfoW")
-	procMonitorFromPoint     = modUser32.NewProc("MonitorFromPoint")
-	procMonitorFromWindow    = modUser32.NewProc("MonitorFromWindow")
-	procGetSystemMetrics     = modUser32.NewProc("GetSystemMetrics")
-	procGetCursorPos         = modUser32.NewProc("GetCursorPos")
-	procSetForeground        = modUser32.NewProc("SetForegroundWindow")
-	procCreatePopupMenu      = modUser32.NewProc("CreatePopupMenu")
-	procAppendMenuW          = modUser32.NewProc("AppendMenuW")
-	procTrackPopupMenu       = modUser32.NewProc("TrackPopupMenu")
-	procDestroyMenu          = modUser32.NewProc("DestroyMenu")
-	procSetMenuDefaultItem   = modUser32.NewProc("SetMenuDefaultItem")
-	procSendMessageW         = modUser32.NewProc("SendMessageW")
-	procGetDlgItem           = modUser32.NewProc("GetDlgItem")
-	procSetWindowTextW       = modUser32.NewProc("SetWindowTextW")
-	procGetWindowTextW2      = modUser32.NewProc("GetWindowTextW")
-	procIsWindow             = modUser32.NewProc("IsWindow")
-	procSetWindowRgn         = modUser32.NewProc("SetWindowRgn")
-	procLoadCursorW          = modUser32.NewProc("LoadCursorW")
-	procGetDC                = modUser32.NewProc("GetDC")
-	procReleaseDC            = modUser32.NewProc("ReleaseDC")
-	procSetFocus             = modUser32.NewProc("SetFocus")
-	procEnableWindow         = modUser32.NewProc("EnableWindow")
+	procGetWindowRect              = modUser32.NewProc("GetWindowRect")
+	procGetClientRect              = modUser32.NewProc("GetClientRect")
+	procEnumWindows                = modUser32.NewProc("EnumWindows")
+	procIsWindowVisible            = modUser32.NewProc("IsWindowVisible")
+	procIsIconic                   = modUser32.NewProc("IsIconic")
+	procGetWindowTextW             = modUser32.NewProc("GetWindowTextW")
+	procGetWindowTextLengthW       = modUser32.NewProc("GetWindowTextLengthW")
+	procGetWindowThreadProcessId   = modUser32.NewProc("GetWindowThreadProcessId")
+	procGetClassNameW              = modUser32.NewProc("GetClassNameW")
+	procSetForegroundWindow        = modUser32.NewProc("SetForegroundWindow")
+	procBringWindowToTop           = modUser32.NewProc("BringWindowToTop")
+	procGetForegroundWindow        = modUser32.NewProc("GetForegroundWindow")
+	procAttachThreadInput          = modUser32.NewProc("AttachThreadInput")
+	procAllowSetForegroundWindow   = modUser32.NewProc("AllowSetForegroundWindow")
+	procEnumDisplayMonitors        = modUser32.NewProc("EnumDisplayMonitors")
+	procGetMonitorInfoW            = modUser32.NewProc("GetMonitorInfoW")
+	procMonitorFromPoint           = modUser32.NewProc("MonitorFromPoint")
+	procMonitorFromWindow          = modUser32.NewProc("MonitorFromWindow")
+	procGetSystemMetrics           = modUser32.NewProc("GetSystemMetrics")
+	procGetCursorPos               = modUser32.NewProc("GetCursorPos")
+	procSetForeground              = modUser32.NewProc("SetForegroundWindow")
+	procCreatePopupMenu            = modUser32.NewProc("CreatePopupMenu")
+	procAppendMenuW                = modUser32.NewProc("AppendMenuW")
+	procTrackPopupMenu             = modUser32.NewProc("TrackPopupMenu")
+	procDestroyMenu                = modUser32.NewProc("DestroyMenu")
+	procSetMenuDefaultItem         = modUser32.NewProc("SetMenuDefaultItem")
+	procSendMessageW               = modUser32.NewProc("SendMessageW")
+	procGetDlgItem                 = modUser32.NewProc("GetDlgItem")
+	procSetWindowTextW             = modUser32.NewProc("SetWindowTextW")
+	procInitCommonControlsEx       = modComctl32.NewProc("InitCommonControlsEx")
+	procGetWindowTextW2            = modUser32.NewProc("GetWindowTextW")
+	procIsWindow                   = modUser32.NewProc("IsWindow")
+	procSetWindowRgn               = modUser32.NewProc("SetWindowRgn")
+	procLoadCursorW                = modUser32.NewProc("LoadCursorW")
+	procGetDC                      = modUser32.NewProc("GetDC")
+	procReleaseDC                  = modUser32.NewProc("ReleaseDC")
+	procSetFocus                   = modUser32.NewProc("SetFocus")
+	procEnableWindow               = modUser32.NewProc("EnableWindow")
 
-	procCreateSolidBrush     = modGdi32.NewProc("CreateSolidBrush")
-	procDeleteObject         = modGdi32.NewProc("DeleteObject")
-	procSetBkMode            = modGdi32.NewProc("SetBkMode")
-	procSetTextColor         = modGdi32.NewProc("SetTextColor")
-	procSelectObject         = modGdi32.NewProc("SelectObject")
-	procCreateFontW          = modGdi32.NewProc("CreateFontW")
-	procGetStockObject       = modGdi32.NewProc("GetStockObject")
-	procCreateCompatibleDC   = modGdi32.NewProc("CreateCompatibleDC")
+	procCreateSolidBrush       = modGdi32.NewProc("CreateSolidBrush")
+	procDeleteObject           = modGdi32.NewProc("DeleteObject")
+	procSetBkMode              = modGdi32.NewProc("SetBkMode")
+	procSetTextColor           = modGdi32.NewProc("SetTextColor")
+	procSelectObject           = modGdi32.NewProc("SelectObject")
+	procCreateFontW            = modGdi32.NewProc("CreateFontW")
+	procGetStockObject         = modGdi32.NewProc("GetStockObject")
+	procCreateCompatibleDC     = modGdi32.NewProc("CreateCompatibleDC")
 	procCreateCompatibleBitmap = modGdi32.NewProc("CreateCompatibleBitmap")
-	procCreateDIBSection     = modGdi32.NewProc("CreateDIBSection")
-	procCreateBitmap         = modGdi32.NewProc("CreateBitmap")
-	procBitBlt               = modGdi32.NewProc("BitBlt")
-	procStretchBlt           = modGdi32.NewProc("StretchBlt")
-	procSetStretchBltMode    = modGdi32.NewProc("SetStretchBltMode")
-	procAlphaBlend           = modMsimg32.NewProc("AlphaBlend")
-	procDeleteDC             = modGdi32.NewProc("DeleteDC")
-	procCreateRoundRectRgn   = modGdi32.NewProc("CreateRoundRectRgn")
-	procCreateEllipticRgn    = modGdi32.NewProc("CreateEllipticRgn")
-	procEllipse              = modGdi32.NewProc("Ellipse")
-	procMoveToEx             = modGdi32.NewProc("MoveToEx")
-	procLineTo               = modGdi32.NewProc("LineTo")
-	procCreatePen            = modGdi32.NewProc("CreatePen")
-	procSetBkColor           = modGdi32.NewProc("SetBkColor")
+	procCreateDIBSection       = modGdi32.NewProc("CreateDIBSection")
+	procCreateBitmap           = modGdi32.NewProc("CreateBitmap")
+	procBitBlt                 = modGdi32.NewProc("BitBlt")
+	procStretchBlt             = modGdi32.NewProc("StretchBlt")
+	procSetStretchBltMode      = modGdi32.NewProc("SetStretchBltMode")
+	procAlphaBlend             = modMsimg32.NewProc("AlphaBlend")
+	procDeleteDC               = modGdi32.NewProc("DeleteDC")
+	procCreateRoundRectRgn     = modGdi32.NewProc("CreateRoundRectRgn")
+	procCreateEllipticRgn      = modGdi32.NewProc("CreateEllipticRgn")
+	procEllipse                = modGdi32.NewProc("Ellipse")
+	procMoveToEx               = modGdi32.NewProc("MoveToEx")
+	procLineTo                 = modGdi32.NewProc("LineTo")
+	procCreatePen              = modGdi32.NewProc("CreatePen")
+	procSetBkColor             = modGdi32.NewProc("SetBkColor")
 
-	procCreateIconIndirect   = modUser32.NewProc("CreateIconIndirect")
-	procDestroyIcon          = modUser32.NewProc("DestroyIcon")
-	procShellNotifyIconW     = modShell32.NewProc("Shell_NotifyIconW")
+	procCreateIconIndirect = modUser32.NewProc("CreateIconIndirect")
+	procDestroyIcon        = modUser32.NewProc("DestroyIcon")
+	procShellNotifyIconW   = modShell32.NewProc("Shell_NotifyIconW")
 
-	procGetModuleHandleW     = modKernel32.NewProc("GetModuleHandleW")
-	procGetCurrentThreadId   = modKernel32.NewProc("GetCurrentThreadId")
-	procFreeConsole          = modKernel32.NewProc("FreeConsole")
-	procSetCapture           = modUser32.NewProc("SetCapture")
-	procReleaseCapture       = modUser32.NewProc("ReleaseCapture")
+	procGetModuleHandleW   = modKernel32.NewProc("GetModuleHandleW")
+	procGetCurrentThreadId = modKernel32.NewProc("GetCurrentThreadId")
+	procFreeConsole        = modKernel32.NewProc("FreeConsole")
+	procSetCapture         = modUser32.NewProc("SetCapture")
+	procReleaseCapture     = modUser32.NewProc("ReleaseCapture")
 )
 
 func LOWORD(v uintptr) uint16 { return uint16(v & 0xFFFF) }
@@ -916,3 +946,17 @@ func SetWindowText(h windows.Handle, s string) {
 	p, _ := syscall.UTF16PtrFromString(s)
 	procSetWindowTextW.Call(uintptr(h), uintptr(unsafe.Pointer(p)))
 }
+
+func InitTabs() bool {
+	icc := INITCOMMONCONTROLSEX{Size: uint32(unsafe.Sizeof(INITCOMMONCONTROLSEX{})), ICC: ICC_TAB_CLASSES}
+	r, _, _ := procInitCommonControlsEx.Call(uintptr(unsafe.Pointer(&icc)))
+	return r != 0
+}
+
+func TabInsert(h windows.Handle, index int, label string) {
+	p, _ := syscall.UTF16PtrFromString(label)
+	item := TCITEM{Mask: TCIF_TEXT, Text: p}
+	Send(h, TCM_INSERTITEMW, uintptr(index), uintptr(unsafe.Pointer(&item)))
+}
+
+func TabGet(h windows.Handle) int { return int(Send(h, TCM_GETCURSEL, 0, 0)) }

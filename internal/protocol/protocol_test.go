@@ -41,6 +41,21 @@ func TestParseEncTapBtn(t *testing.T) {
 	}
 }
 
+func TestParseSensorMessages(t *testing.T) {
+	status, err := ParseDeviceLine(`{"v":1,"t":"sensor","ch":0,"kind":"tof","ok":true}`)
+	if err != nil || status.Ch != 0 || status.Kind != "tof" || !status.OK {
+		t.Fatalf("status %+v %v", status, err)
+	}
+	tof, err := ParseDeviceLine(`{"v":1,"t":"tof","ch":3,"mm":421}`)
+	if err != nil || tof.Ch != 3 || tof.MM != 421 {
+		t.Fatalf("tof %+v %v", tof, err)
+	}
+	accel, err := ParseDeviceLine(`{"v":1,"t":"accel","ch":4,"x":12,"y":-410,"z":1002}`)
+	if err != nil || accel.Ch != 4 || accel.X != 12 || accel.Y != -410 || accel.Z != 1002 {
+		t.Fatalf("accel %+v %v", accel, err)
+	}
+}
+
 func TestEncodeHostRoundTrip(t *testing.T) {
 	b, err := State(true, 7, 2, "grok", "session name")
 	if err != nil {
@@ -86,5 +101,3 @@ func TestSplitLines(t *testing.T) {
 		t.Fatalf("leftover %q", buf.String())
 	}
 }
-
-
