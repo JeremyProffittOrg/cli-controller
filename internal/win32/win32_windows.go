@@ -117,6 +117,8 @@ const (
 	LBS_HASSTRINGS       = 0x0040
 	LBS_NOINTEGRALHEIGHT = 0x0100
 	LB_ADDSTRING         = 0x0180
+	LB_INSERTSTRING      = 0x0181
+	LB_DELETESTRING      = 0x0182
 	LB_RESETCONTENT      = 0x0184
 	LB_SETCURSEL         = 0x0186
 	LB_GETCURSEL         = 0x0188
@@ -966,6 +968,19 @@ func ListSet(h windows.Handle, idx int) { Send(h, LB_SETCURSEL, uintptr(idx), 0)
 func ListGet(h windows.Handle) int { return int(int32(Send(h, LB_GETCURSEL, 0, 0))) }
 
 func ListCount(h windows.Handle) int { return int(int32(Send(h, LB_GETCOUNT, 0, 0))) }
+
+func ListSetText(h windows.Handle, idx int, s string) {
+	if idx < 0 {
+		return
+	}
+	sel := ListGet(h)
+	Send(h, LB_DELETESTRING, uintptr(idx), 0)
+	p, _ := syscall.UTF16PtrFromString(s)
+	Send(h, LB_INSERTSTRING, uintptr(idx), uintptr(unsafe.Pointer(p)))
+	if sel >= 0 {
+		ListSet(h, sel)
+	}
+}
 
 func SetWindowText(h windows.Handle, s string) {
 	p, _ := syscall.UTF16PtrFromString(s)

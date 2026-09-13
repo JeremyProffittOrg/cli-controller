@@ -84,6 +84,21 @@ func TestScanHostMessage(t *testing.T) {
 	}
 }
 
+func TestSensorLiveText(t *testing.T) {
+	tof := SensorStatus{Kind: "tof", OK: true, Live: true, MM: 142}
+	if tof.LiveText() != "142 mm" {
+		t.Fatalf("tof %s", tof.LiveText())
+	}
+	accel := SensorStatus{Kind: "accel", OK: true, Live: true, X: 12, Y: -410, Z: 1002}
+	if accel.LiveText() != "x +12  y -410  z +1002 mg" {
+		t.Fatalf("accel %s", accel.LiveText())
+	}
+	missing := SensorStatus{Kind: "tof"}
+	if missing.LiveText() != "no signal" {
+		t.Fatalf("missing %s", missing.LiveText())
+	}
+}
+
 func TestFormatSensorID(t *testing.T) {
 	if FormatSensorID(0, 0, "tof") != "root:tof" {
 		t.Fatalf("root %s", FormatSensorID(0, 0, "tof"))

@@ -294,9 +294,13 @@ func (a *App) handleMsg(m protocol.DeviceMsg) {
 		a.settings.SetInventory(a.inventory)
 		a.settings.SetSensorStatus(a.sensorOK)
 	case "tof":
+		a.applySample(m)
 		a.applyMotion(a.motion.Distance(m.SensorID(), m.MM, time.Now()))
+		a.settings.SetLive(a.inventory)
 	case "accel":
+		a.applySample(m)
 		a.applyMotion(a.motion.Accel(m.SensorID(), m.X, m.Y, m.Z, time.Now()))
+		a.settings.SetLive(a.inventory)
 	case "scan":
 		a.settings.SetInventory(a.inventory)
 	}
@@ -319,7 +323,44 @@ func (a *App) upsertInventory(m protocol.DeviceMsg) {
 	}
 	for i := range a.inventory {
 		if a.inventory[i].ID == st.ID {
+			prev := a.inventory[i]
+			st.Live = prev.Live
+			st.MM = prev.MM
+			st.X = prev.X
+			st.Y = prev.Y
+			st.Z = prev.Z
 			a.inventory[i] = st
+			a.syncLegacyStatus()
+			return
+		}
+	}
+	a.inventory = append(a.inventory, st)
+	a.syncLegacyStatus()
+}
+
+func (a *App) applySample(m protocol.DeviceMsg) {
+	id := m.SensorID()
+	kind := m.Kind
+	if kind == "" {
+		if m.T == "accel" {
+			kind = "accel"
+		} else {
+			kind = "tof"
+		}
+	}
+	st := protocol.SensorStatus{ID: id, Kind: kind, Mux: m.Mux, Ch: m.Ch, OK: true, Live: true, MM: m.MM, X: m.X, Y: m.Y, Z: m.Z}
+	for i := range a.inventory {
+		if a.inventory[i].ID == id {
+			cur := a.inventory[i]
+			cur.OK = true
+			cur.Live = true
+			cur.Kind = kind
+			if kind == "accel" {
+				cur.X, cur.Y, cur.Z = m.X, m.Y, m.Z
+			} else {
+				cur.MM = m.MM
+			}
+			a.inventory[i] = cur
 			a.syncLegacyStatus()
 			return
 		}

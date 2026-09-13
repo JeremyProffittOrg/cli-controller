@@ -42,7 +42,10 @@ type Dialog struct {
 	ctrlRole, ctrlThreshold, ctrlEnabled                      windows.Handle
 	ctrlOrientation, ctrlSensitivity                          windows.Handle
 	ctrlAction                                                [4]windows.Handle
-	ctrlKindLabel                                             windows.Handle
+	ctrlKindLabel, ctrlLive, deskLive                         windows.Handle
+	ctrlRoleLabel, ctrlThreshLabel, ctrlOrientLabel           windows.Handle
+	ctrlSensLabel                                             windows.Handle
+	ctrlDirLabel                                              [4]windows.Handle
 	ports                                                     []serial.PortInfo
 	cfg                                                       config.Config
 	sensorOK                                                  [5]bool
@@ -122,6 +125,7 @@ func proc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 			return 0
 		case idFound:
 			if note == win32.LBN_SELCHANGE {
+				inst.updateLiveReadouts()
 				return 0
 			}
 		case idControls:
@@ -227,31 +231,32 @@ func (d *Dialog) build() {
 	label(2, "Channel", 48, 254, 65)
 	label(2, "Role", 125, 254, 150)
 	label(2, "Threshold (mm)", 292, 254, 130)
-	label(2, "Hardware", 455, 254, 130)
+	label(2, "Live reading", 455, 254, 160)
 	for i := 0; i < 4; i++ {
 		y := int32(282 + i*56)
 		label(2, fmt.Sprintf("CH %d", i), 48, y+4, 65)
 		d.kneeRole[i] = child(2, 0, win32.CBS_DROPDOWNLIST|win32.CBS_HASSTRINGS|win32.WS_TABSTOP, "COMBOBOX", "", 125, y, 145, 100, uintptr(120+i))
 		d.kneeThreshold[i] = child(2, win32.WS_EX_CLIENTEDGE, win32.WS_TABSTOP, "EDIT", "75", 292, y, 125, 26, uintptr(130+i))
-		d.kneeStatus[i] = label(2, "Not detected", 455, y+4, 150)
+		d.kneeStatus[i] = label(2, "no signal", 455, y+4, 190)
 	}
 	section(3, "01  DESK MOTION SENSOR", 112)
 	d.deskEnabled = child(3, 0, win32.BS_AUTOCHECKBOX|win32.WS_TABSTOP, "BUTTON", "Enable ADXL345 desk motion", 48, 140, 280, 24, 140)
-	d.deskStatus = label(3, "CH 4 // Not detected", 390, 142, 220)
-	label(3, "Board orientation", 48, 188, 150)
-	d.deskOrientation = child(3, 0, win32.CBS_DROPDOWNLIST|win32.CBS_HASSTRINGS|win32.WS_TABSTOP, "COMBOBOX", "", 210, 184, 160, 120, 141)
-	label(3, "Sensitivity (milli-g)", 48, 230, 150)
-	d.deskSensitivity = child(3, win32.WS_EX_CLIENTEDGE, win32.WS_TABSTOP, "EDIT", "350", 210, 226, 160, 26, 142)
-	section(3, "02  DIRECTION ACTIONS", 286)
+	d.deskStatus = label(3, "no signal", 340, 142, 300)
+	d.deskLive = label(3, "Live  waiting for sample", 48, 172, 600)
+	label(3, "Board orientation", 48, 208, 150)
+	d.deskOrientation = child(3, 0, win32.CBS_DROPDOWNLIST|win32.CBS_HASSTRINGS|win32.WS_TABSTOP, "COMBOBOX", "", 210, 204, 160, 120, 141)
+	label(3, "Sensitivity (milli-g)", 48, 250, 150)
+	d.deskSensitivity = child(3, win32.WS_EX_CLIENTEDGE, win32.WS_TABSTOP, "EDIT", "350", 210, 246, 160, 26, 142)
+	section(3, "02  DIRECTION ACTIONS", 306)
 	dirs := []string{"Left", "Right", "Forward", "Back"}
 	for i, name := range dirs {
-		y := int32(320 + i*52)
+		y := int32(340 + i*52)
 		label(3, name, 48, y+4, 120)
 		d.deskAction[i] = child(3, 0, win32.CBS_DROPDOWNLIST|win32.CBS_HASSTRINGS|win32.WS_TABSTOP, "COMBOBOX", "", 180, y, 240, 100, uintptr(150+i))
 	}
 	section(4, "01  DISCOVERED HARDWARE", 112)
 	d.foundList = child(4, win32.WS_EX_CLIENTEDGE, win32.LBS_NOTIFY|win32.LBS_HASSTRINGS|win32.LBS_NOINTEGRALHEIGHT|win32.WS_VSCROLL|win32.WS_TABSTOP, "LISTBOX", "", 48, 136, 600, 118, idFound)
-	d.foundStatus = label(4, "Mux 0x70-0x77 and the root I2C bus. Press Scan after wiring changes.", 48, 258, 400)
+	d.foundStatus = label(4, "Mux 0x70-0x77 and the root I2C bus. Live readings update while this window is open.", 48, 258, 490)
 	child(4, 0, win32.BS_PUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Scan now", 548, 254, 100, 26, idScan)
 	section(4, "02  CONTROLS", 290)
 	d.controlList = child(4, win32.WS_EX_CLIENTEDGE, win32.LBS_NOTIFY|win32.LBS_HASSTRINGS|win32.LBS_NOINTEGRALHEIGHT|win32.WS_VSCROLL|win32.WS_TABSTOP, "LISTBOX", "", 48, 314, 600, 100, idControls)
@@ -259,20 +264,21 @@ func (d *Dialog) build() {
 	child(4, 0, win32.BS_PUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Remove", 178, 420, 100, 26, idRemove)
 	section(4, "03  SELECTED CONTROL", 456)
 	d.ctrlKindLabel = label(4, "Select a discovered sensor, then Add control.", 48, 484, 600)
-	label(4, "Role", 48, 516, 80)
-	d.ctrlRole = child(4, 0, win32.CBS_DROPDOWNLIST|win32.CBS_HASSTRINGS|win32.WS_TABSTOP, "COMBOBOX", "", 130, 512, 160, 100, 165)
-	label(4, "Threshold mm", 310, 516, 110)
-	d.ctrlThreshold = child(4, win32.WS_EX_CLIENTEDGE, win32.WS_TABSTOP, "EDIT", "75", 430, 512, 90, 26, 166)
-	d.ctrlEnabled = child(4, 0, win32.BS_AUTOCHECKBOX|win32.WS_TABSTOP, "BUTTON", "Enable desk motion", 48, 548, 220, 24, 167)
-	label(4, "Orientation", 280, 548, 90)
-	d.ctrlOrientation = child(4, 0, win32.CBS_DROPDOWNLIST|win32.CBS_HASSTRINGS|win32.WS_TABSTOP, "COMBOBOX", "", 370, 544, 150, 120, 168)
-	label(4, "Sensitivity mg", 48, 584, 120)
-	d.ctrlSensitivity = child(4, win32.WS_EX_CLIENTEDGE, win32.WS_TABSTOP, "EDIT", "350", 170, 580, 100, 26, 169)
+	d.ctrlLive = label(4, "Live  no signal", 48, 504, 600)
+	d.ctrlRoleLabel = label(4, "Role", 48, 532, 80)
+	d.ctrlRole = child(4, 0, win32.CBS_DROPDOWNLIST|win32.CBS_HASSTRINGS|win32.WS_TABSTOP, "COMBOBOX", "", 130, 528, 160, 100, 165)
+	d.ctrlThreshLabel = label(4, "Threshold mm", 310, 532, 110)
+	d.ctrlThreshold = child(4, win32.WS_EX_CLIENTEDGE, win32.WS_TABSTOP, "EDIT", "75", 430, 528, 90, 26, 166)
+	d.ctrlEnabled = child(4, 0, win32.BS_AUTOCHECKBOX|win32.WS_TABSTOP, "BUTTON", "Enable desk motion", 48, 564, 220, 24, 167)
+	d.ctrlOrientLabel = label(4, "Orientation", 280, 564, 90)
+	d.ctrlOrientation = child(4, 0, win32.CBS_DROPDOWNLIST|win32.CBS_HASSTRINGS|win32.WS_TABSTOP, "COMBOBOX", "", 370, 560, 150, 120, 168)
+	d.ctrlSensLabel = label(4, "Sensitivity mg", 48, 600, 120)
+	d.ctrlSensitivity = child(4, win32.WS_EX_CLIENTEDGE, win32.WS_TABSTOP, "EDIT", "350", 170, 596, 100, 26, 169)
 	dirs2 := []string{"Left", "Right", "Fwd", "Back"}
 	for i, name := range dirs2 {
 		x := int32(48 + i*155)
-		label(4, name, x, 616, 70)
-		d.ctrlAction[i] = child(4, 0, win32.CBS_DROPDOWNLIST|win32.CBS_HASSTRINGS|win32.WS_TABSTOP, "COMBOBOX", "", x, 636, 145, 100, uintptr(170+i))
+		d.ctrlDirLabel[i] = label(4, name, x, 628, 70)
+		d.ctrlAction[i] = child(4, 0, win32.CBS_DROPDOWNLIST|win32.CBS_HASSTRINGS|win32.WS_TABSTOP, "COMBOBOX", "", x, 648, 145, 100, uintptr(170+i))
 	}
 	save := child(-1, 0, win32.BS_DEFPUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Commit", 450, 740, 100, 32, idSave)
 	cancel := child(-1, 0, win32.BS_PUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Abort", 566, 740, 100, 32, idCancel)
@@ -390,60 +396,155 @@ func (d *Dialog) Show(cfg config.Config, ports []serial.PortInfo) {
 	}
 	d.refreshSensorLists()
 	d.loadControlFields()
-	d.updateStatus()
 	d.showPage(win32.TabGet(d.tab))
 	win32.ShowWindow(d.hwnd, win32.SW_SHOW)
 	win32.SetForegroundWindow(d.hwnd)
 }
 
-func (d *Dialog) SetSensorStatus(status [5]bool) { d.sensorOK = status; d.updateStatus() }
+func (d *Dialog) SetSensorStatus(status [5]bool) { d.sensorOK = status; d.updateLiveReadouts() }
 
 func (d *Dialog) SetInventory(list []protocol.SensorStatus) {
+	d.inventory = mergeInventory(d.inventory, list)
+	d.syncLegacyFromInventory()
+	d.refreshSensorLists()
+}
+
+func (d *Dialog) SetLive(list []protocol.SensorStatus) {
 	d.inventory = append([]protocol.SensorStatus(nil), list...)
-	legacy := [5]bool{}
-	for _, s := range d.inventory {
-		if s.OK && (s.Mux == 0x70 || s.Mux == 0) {
-			if s.Kind == "accel" && s.Ch == 4 {
-				legacy[4] = true
-			} else if s.Kind == "tof" && s.Ch >= 0 && s.Ch < 4 {
-				legacy[s.Ch] = true
-			}
+	d.syncLegacyFromInventory()
+	if !win32.IsWindowVisible(d.hwnd) {
+		return
+	}
+	d.patchFoundList()
+	d.updateLiveReadouts()
+}
+
+func mergeInventory(old, next []protocol.SensorStatus) []protocol.SensorStatus {
+	prev := map[string]protocol.SensorStatus{}
+	for _, s := range old {
+		prev[s.ID] = s
+	}
+	out := make([]protocol.SensorStatus, len(next))
+	copy(out, next)
+	for i, s := range out {
+		p, ok := prev[s.ID]
+		if !ok || !p.Live {
+			continue
 		}
-		if s.OK && strings.HasPrefix(s.ID, "mux:70:") {
-			if strings.HasSuffix(s.ID, ":accel") {
-				legacy[4] = true
-			} else if strings.Contains(s.ID, ":0:") {
-				legacy[0] = true
-			} else if strings.Contains(s.ID, ":1:") {
-				legacy[1] = true
-			} else if strings.Contains(s.ID, ":2:") {
-				legacy[2] = true
-			} else if strings.Contains(s.ID, ":3:") {
-				legacy[3] = true
-			}
+		out[i].Live = true
+		out[i].MM = p.MM
+		out[i].X = p.X
+		out[i].Y = p.Y
+		out[i].Z = p.Z
+	}
+	return out
+}
+
+func (d *Dialog) syncLegacyFromInventory() {
+	var legacy [5]bool
+	for _, s := range d.inventory {
+		if !s.OK {
+			continue
+		}
+		if s.Kind == "accel" && (s.ID == protocol.FormatSensorID(0x70, 4, "accel") || s.Ch == 4) {
+			legacy[4] = true
+		}
+		if s.Kind == "tof" && s.Ch >= 0 && s.Ch < 4 && (s.Mux == 0x70 || strings.HasPrefix(s.ID, "mux:70:")) {
+			legacy[s.Ch] = true
 		}
 	}
 	d.sensorOK = legacy
-	d.refreshSensorLists()
-	d.updateStatus()
 }
-func (d *Dialog) updateStatus() {
+
+func (d *Dialog) liveByID(id string) (protocol.SensorStatus, bool) {
+	for _, s := range d.inventory {
+		if s.ID == id {
+			return s, true
+		}
+	}
+	return protocol.SensorStatus{}, false
+}
+
+func (d *Dialog) liveTof(ch int) protocol.SensorStatus {
+	id := protocol.FormatSensorID(0x70, ch, "tof")
+	if s, ok := d.liveByID(id); ok {
+		return s
+	}
+	for _, s := range d.inventory {
+		if s.Kind == "tof" && s.Ch == ch && (s.Mux == 0x70 || s.Mux == 0) {
+			return s
+		}
+	}
+	return protocol.SensorStatus{Kind: "tof"}
+}
+
+func (d *Dialog) liveDesk() protocol.SensorStatus {
+	if s, ok := d.liveByID(protocol.FormatSensorID(0x70, 4, "accel")); ok {
+		return s
+	}
+	for _, s := range d.inventory {
+		if s.Kind == "accel" {
+			return s
+		}
+	}
+	return protocol.SensorStatus{Kind: "accel"}
+}
+
+func (d *Dialog) patchFoundList() {
+	if len(d.inventory) == 0 || win32.ListCount(d.foundList) != len(d.inventory) {
+		return
+	}
+	for i, s := range d.inventory {
+		win32.ListSetText(d.foundList, i, hardwareLabel(s))
+	}
+}
+
+func (d *Dialog) updateLiveReadouts() {
 	for i, h := range d.kneeStatus {
 		if h == 0 {
 			continue
 		}
-		s := "Not detected"
-		if d.sensorOK[i] {
-			s = "Detected"
-		}
-		win32.SetWindowText(h, s)
+		win32.SetWindowText(h, d.liveTof(i).LiveText())
 	}
+	desk := d.liveDesk()
 	if d.deskStatus != 0 {
-		s := "CH 4 // Not detected"
-		if d.sensorOK[4] {
-			s = "CH 4 // Detected"
+		state := "no signal"
+		if desk.OK && desk.Live {
+			state = "live"
+		} else if desk.OK {
+			state = "waiting"
 		}
-		win32.SetWindowText(d.deskStatus, s)
+		win32.SetWindowText(d.deskStatus, state)
+	}
+	if d.deskLive != 0 {
+		win32.SetWindowText(d.deskLive, "Live  "+desk.LiveText())
+	}
+	if d.ctrlLive != 0 {
+		text := "Live  no signal"
+		if d.selectedControl >= 0 && d.selectedControl < len(d.controls) {
+			if s, ok := d.liveByID(d.controls[d.selectedControl].ID); ok {
+				text = "Live  " + s.LiveText()
+			}
+		}
+		win32.SetWindowText(d.ctrlLive, text)
+	}
+	ok := 0
+	live := 0
+	for _, s := range d.inventory {
+		if s.OK {
+			ok++
+		}
+		if s.Live {
+			live++
+		}
+	}
+	if d.foundStatus != 0 {
+		sel := ""
+		idx := win32.ListGet(d.foundList)
+		if idx >= 0 && idx < len(d.inventory) {
+			sel = "  Selected " + d.inventory[idx].LiveText()
+		}
+		win32.SetWindowText(d.foundStatus, fmt.Sprintf("%d device(s), %d connected, %d streaming.%s", len(d.inventory), ok, live, sel))
 	}
 }
 func (d *Dialog) hide() {
@@ -552,14 +653,15 @@ func hardwareLabel(s protocol.SensorStatus) string {
 	if s.OK {
 		state = "Detected"
 	}
+	live := s.LiveText()
 	if strings.HasPrefix(s.ID, "root:") || s.Mux == 0 && strings.HasPrefix(s.ID, "root") {
-		return fmt.Sprintf("root bus  %s  %s  %s", kind, s.ID, state)
+		return fmt.Sprintf("root bus  %s  %s  %s  %s", kind, s.ID, state, live)
 	}
 	mux := s.Mux
 	if mux == 0 {
 		mux = 0x70
 	}
-	return fmt.Sprintf("mux 0x%02X ch %d  %s  %s  %s", mux, s.Ch, kind, s.ID, state)
+	return fmt.Sprintf("mux 0x%02X ch %d  %s  %s  %s  %s", mux, s.Ch, kind, s.ID, state, live)
 }
 
 func controlLabel(s config.SensorControl) string {
@@ -605,13 +707,7 @@ func (d *Dialog) refreshSensorLists() {
 	}
 	d.selectedControl = selCtrl
 	win32.ListSet(d.controlList, selCtrl)
-	ok := 0
-	for _, s := range d.inventory {
-		if s.OK {
-			ok++
-		}
-	}
-	win32.SetWindowText(d.foundStatus, fmt.Sprintf("%d device(s) on muxes 0x70-0x77 and the root bus. %d live.", len(d.inventory), ok))
+	d.updateLiveReadouts()
 }
 
 func (d *Dialog) addControl() {
@@ -713,6 +809,9 @@ func (d *Dialog) loadControlFields() {
 	accelOn := false
 	if i < 0 || i >= len(d.controls) {
 		win32.SetWindowText(d.ctrlKindLabel, "Select a discovered sensor, then Add control.")
+		if d.ctrlLive != 0 {
+			win32.SetWindowText(d.ctrlLive, "Live  no signal")
+		}
 	} else {
 		s := d.controls[i]
 		if s.Kind == "accel" {
@@ -733,12 +832,18 @@ func (d *Dialog) loadControlFields() {
 			win32.SetWindowText(d.ctrlThreshold, strconv.Itoa(s.ThresholdMM))
 		}
 	}
+	show(d.ctrlRoleLabel, tofOn)
 	show(d.ctrlRole, tofOn)
+	show(d.ctrlThreshLabel, tofOn)
 	show(d.ctrlThreshold, tofOn)
 	show(d.ctrlEnabled, accelOn)
+	show(d.ctrlOrientLabel, accelOn)
 	show(d.ctrlOrientation, accelOn)
+	show(d.ctrlSensLabel, accelOn)
 	show(d.ctrlSensitivity, accelOn)
-	for _, h := range d.ctrlAction {
-		show(h, accelOn)
+	for i := range d.ctrlAction {
+		show(d.ctrlDirLabel[i], accelOn)
+		show(d.ctrlAction[i], accelOn)
 	}
+	d.updateLiveReadouts()
 }

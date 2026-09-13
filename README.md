@@ -327,19 +327,19 @@ Choose the classic list or graphical Dial overlay, select one of the included gr
 
 ### Knees
 
-Choose the gesture mode, left-raise count, right direction, and each channel's role and distance threshold. Hardware status is live. Saving still works when sensors are absent.
+Choose the gesture mode, left-raise count, right direction, and each channel's role and distance threshold. The Hardware column shows the live millimetre reading so you can set the threshold against the real distance. Saving still works when sensors are absent.
 
 ![Knees settings tab](docs/images/settings-knees.png)
 
 ### Desk
 
-Enable or disable the default ADXL345 desk motion control, set orientation and sensitivity, and map Left, Right, Forward, and Back independently.
+Enable or disable the default ADXL345 desk motion control, set orientation and sensitivity, and map Left, Right, Forward, and Back independently. The live X/Y/Z milli-g reading updates while you adjust sensitivity and orientation.
 
 ![Desk settings tab](docs/images/settings-desk.png)
 
 ### Sensors
 
-The Sensors tab lists every VL53L4CD and ADXL345 the Dial found on PCA9548 muxes `0x70`-`0x77` and on the root I2C bus. Press `Scan now`, select a device, and press `Add control`. Distance controls get a left/right/off role and a millimetre threshold. Accelerometer controls get enable, orientation, sensitivity, and direction actions. You can add as many controls as you have sensors.
+The Sensors tab lists every VL53L4CD and ADXL345 the Dial found on PCA9548 muxes `0x70`-`0x77` and on the root I2C bus. Press `Scan now`, select a device, and press `Add control`. Each row and the selected-control panel show the live millimetre or milli-g reading so you can tune thresholds and sensitivity against the real signal. Distance controls get a left/right/off role and a millimetre threshold. Accelerometer controls get enable, orientation, sensitivity, and direction actions. You can add as many controls as you have sensors.
 
 ![Sensors settings tab](docs/images/settings-sensors.png)
 

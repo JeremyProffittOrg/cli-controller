@@ -35,6 +35,24 @@ type SensorStatus struct {
 	Mux  int
 	Ch   int
 	OK   bool
+	Live bool
+	MM   int
+	X    int
+	Y    int
+	Z    int
+}
+
+func (s SensorStatus) LiveText() string {
+	if !s.Live {
+		if s.OK {
+			return "waiting for sample"
+		}
+		return "no signal"
+	}
+	if s.Kind == "accel" {
+		return fmt.Sprintf("x %+d  y %+d  z %+d mg", s.X, s.Y, s.Z)
+	}
+	return fmt.Sprintf("%d mm", s.MM)
 }
 
 func FormatSensorID(mux, ch int, kind string) string {
