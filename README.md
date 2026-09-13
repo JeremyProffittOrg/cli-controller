@@ -16,7 +16,7 @@
 
 CLI Controller turns an M5Stack Dial into a physical control surface for command-line windows on Windows. Rotate the Dial to choose a CLI window. Press to focus it. Tap the screen to tile or stack all supported CLI windows. Optional knee-distance sensors and a desk-motion sensor add hands-free controls.
 
-Firmware 0.5.0 treats every motion sensor as optional. The Dial, display, encoder, button, and touch controls continue to work when no PCA9548 or sensor is connected.
+Firmware 0.6.0 treats every motion sensor as optional. The Dial, display, encoder, button, and touch controls continue to work when no PCA9548 or sensor is connected. The firmware scans PCA9548 addresses `0x70`-`0x77`, all eight channels on each mux, and the root I2C bus.
 
 ## M5Stack Dial hardware
 
@@ -45,8 +45,8 @@ The M5Dial combines a 1.28-inch circular touch display, rotary encoder, M5StampS
 - Focuses the selected CLI after a configurable idle delay.
 - Tiles windows across their monitors or stacks them with visible title bars.
 - Rotates the M5Dial display and touch map through any degree value.
-- Supports up to four PCA9548-isolated VL53L4CD distance sensors.
-- Supports an optional PCA9548-isolated ADXL345 desk-motion sensor.
+- Scans for VL53L4CD and ADXL345 sensors on every PCA9548 channel and on the root I2C bus.
+- Lets you list discovered sensors and add an unbounded number of controls in Settings.
 - Offers two selectable knee-control modes.
 - Maps four physical desk directions to Tile, Stack, or no action.
 - Recovers from optional-sensor read failures without rebooting the Dial.
@@ -58,7 +58,7 @@ flowchart LR
     User((User))
     Dial[M5Stack Dial<br/>encoder + touch + button]
     Mux[PCA9548<br/>I2C multiplexer]
-    ToF[0-4 VL53L4CD<br/>knee sensors]
+    ToF[VL53L4CD<br/>any mux channel or root]
     Accel[ADXL345<br/>desk motion]
     USB[USB serial<br/>protocol v1]
     App[Windows host app]
@@ -92,11 +92,11 @@ flowchart LR
 | Quantity | Part | I2C address | PCA9548 channel | Purpose |
 |---:|---|---:|---:|---|
 | 1 | Adafruit PCA9548 | `0x70` | upstream | Isolates identical-address sensors |
-| 1-4 | VL53L4CD distance sensor | `0x29` | 0-3 | Detects left or right knee raises |
-| 0-1 | ADXL345 accelerometer | `0x53` | 4 | Detects desk motion in four directions |
+| 1+ | VL53L4CD distance sensor | `0x29` | any channel or root bus | Detects left or right knee raises |
+| 0+ | ADXL345 accelerometer | `0x53` | any channel or root bus | Detects desk motion in four directions |
 | as needed | STEMMA QT/Qwiic or compatible I2C cables | - | - | Connects the mux and sensors |
 
-Channels 5-7 are reserved and unused. A channel number identifies a VL53L4CD; the firmware does not change the sensor's `0x29` address.
+Use extra PCA9548 boards at `0x71`-`0x77` when you need more than eight isolated channels. A channel number plus mux address identifies a VL53L4CD; the firmware does not change the sensor's `0x29` address. Sensors may also sit on the root bus when no mux owns that address.
 
 ## Printable cases
 
@@ -167,11 +167,11 @@ flowchart TB
 
 1. Disconnect USB power before changing cables.
 2. Connect M5Dial Port A to the PCA9548 upstream connector.
-3. Connect distance sensors only to channels 0-3.
-4. Connect the ADXL345 only to channel 4.
+3. Connect VL53L4CD and ADXL345 boards to any PCA9548 channel, or to the root bus.
+4. Add more PCA9548 boards at `0x71`-`0x77` if you need more than eight channels.
 5. Check the SDA, SCL, power, and ground labels on each board. Do not rely on cable color alone.
-6. Reconnect USB. The firmware scans channels automatically.
-7. Open Settings. A working device changes from `Not detected` to `Detected`.
+6. Reconnect USB. The firmware scans muxes, channels, and the root bus automatically.
+7. Open Settings, Sensors tab. Press Scan now, then Add control for each device you want to use.
 
 The no-hardware path is supported. You can install and use CLI Controller before buying or connecting any motion part.
 
@@ -333,9 +333,15 @@ Choose the gesture mode, left-raise count, right direction, and each channel's r
 
 ### Desk
 
-Enable or disable desk motion, set orientation and sensitivity, and map Left, Right, Forward, and Back independently.
+Enable or disable the default ADXL345 desk motion control, set orientation and sensitivity, and map Left, Right, Forward, and Back independently.
 
 ![Desk settings tab](docs/images/settings-desk.png)
+
+### Sensors
+
+The Sensors tab lists every VL53L4CD and ADXL345 the Dial found on PCA9548 muxes `0x70`-`0x77` and on the root I2C bus. Press `Scan now`, select a device, and press `Add control`. Distance controls get a left/right/off role and a millimetre threshold. Accelerometer controls get enable, orientation, sensitivity, and direction actions. You can add as many controls as you have sensors.
+
+![Sensors settings tab](docs/images/settings-sensors.png)
 
 `Commit` saves the current controls. `Abort` closes the dialog without saving.
 
@@ -428,14 +434,15 @@ The protocol is newline-delimited JSON at 115200 baud. Maximum host line length 
 | Type | Example | Meaning |
 |---|---|---|
 | Banner | `CLI-DIAL/1` | Legacy-compatible Dial greeting |
-| `hello` | `{"v":1,"t":"hello","fw":"0.5.0","dev":"cli-dial"}` | Firmware identity |
+| `hello` | `{"v":1,"t":"hello","fw":"0.6.0","dev":"cli-dial"}` | Firmware identity |
 | `enc` | `{"v":1,"t":"enc","d":-2}` | Encoder delta |
 | `tap` | `{"v":1,"t":"tap","id":"tile"}` | Confirmed Tile or Stack touch action |
 | `btn` | `{"v":1,"t":"btn","id":"a"}` | BtnA activation |
 | `pong` | `{"v":1,"t":"pong"}` | Ping response |
-| `sensor` | `{"v":1,"t":"sensor","ch":0,"kind":"tof","ok":true}` | Connection-state change |
-| `tof` | `{"v":1,"t":"tof","ch":0,"mm":421}` | Valid distance sample |
-| `accel` | `{"v":1,"t":"accel","ch":4,"x":12,"y":-410,"z":1002}` | Acceleration in milli-g |
+| `sensor` | `{"v":1,"t":"sensor","id":"mux:70:0:tof","mux":112,"ch":0,"kind":"tof","ok":true}` | Connection-state change |
+| `tof` | `{"v":1,"t":"tof","id":"mux:70:0:tof","mux":112,"ch":0,"mm":421}` | Valid distance sample |
+| `accel` | `{"v":1,"t":"accel","id":"mux:70:4:accel","mux":112,"ch":4,"x":12,"y":-410,"z":1002}` | Acceleration in milli-g |
+| `scan` | `{"v":1,"t":"scan","n":6}` | Inventory count after a bus scan |
 
 ### Host to device
 
@@ -444,6 +451,7 @@ The protocol is newline-delimited JSON at 115200 baud. Maximum host line length 
 | `hello` | `app` | Identifies the Windows application |
 | `ping` | - | Keeps the link active and requests `pong` |
 | `state` | `link`, `n`, `sel`, `brand`, `title`, `rot` | Updates connection state, selection, and display rotation |
+| `scan` | - | Requests an immediate mux and root-bus inventory |
 
 ## Configuration reference
 
@@ -471,6 +479,7 @@ Configuration is stored at `%APPDATA%\cli-controller\config.json`. Logs are stor
 | `deskRight` | `none`, `tile`, `stack` | `stack` |
 | `deskForward` | `none`, `tile`, `stack` | `none` |
 | `deskBack` | `none`, `tile`, `stack` | `none` |
+| `sensors[]` | Unbounded list of sensor controls keyed by `id` (`mux:70:0:tof`, `root:accel`, ...) | Four default ToF channels plus one default ADXL345 |
 
 ## Supported CLI families
 
@@ -564,7 +573,7 @@ Local builds are for verification and installation. Repository delivery is compl
 ### A sensor says `Not detected`
 
 - Confirm the PCA9548 is on the M5Dial external I2C bus at `0x70`.
-- Confirm VL53L4CD sensors use channels 0-3 and ADXL345 uses channel 4.
+- Open the Sensors tab, press Scan now, and confirm the device appears as Detected. Add a control if it is missing from the control list.
 - Check power, ground, SDA, and SCL at both ends of each cable.
 - Leave the application open. Firmware rescans failed or absent channels.
 

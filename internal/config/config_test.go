@@ -104,6 +104,55 @@ func TestOldConfigGetsMotionDefaults(t *testing.T) {
 	}
 }
 
+func TestSensorsRoundTripUnbounded(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("APPDATA", dir)
+	cfg := Default()
+	cfg.Sensors = append(cfg.Sensors, SensorControl{
+		ID: "mux:71:7:tof", Kind: "tof", Role: "left", ThresholdMM: 90,
+	})
+	cfg.Sensors = append(cfg.Sensors, SensorControl{
+		ID: "root:accel", Kind: "accel", Enabled: true, SensitivityMg: 400, Orientation: 90,
+		Left: "stack", Right: "none", Forward: "tile", Back: "none",
+	})
+	if err := Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := got.FindSensor("mux:71:7:tof"); !ok {
+		t.Fatalf("missing extra tof %+v", got.Sensors)
+	}
+	s, ok := got.FindSensor("root:accel")
+	if !ok || !s.Enabled || s.Left != "stack" || s.Orientation != 90 {
+		t.Fatalf("root accel %+v", s)
+	}
+}
+
+func TestOldConfigMigratesSensors(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("APPDATA", dir)
+	p, err := Path()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte(`{"portMode":"auto","dwellMs":500}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.Sensors) < 5 {
+		t.Fatalf("migrated sensors %d", len(c.Sensors))
+	}
+	if _, ok := c.FindSensor("mux:70:0:tof"); !ok {
+		t.Fatalf("missing migrated tof %+v", c.Sensors)
+	}
+}
+
 func TestDefaultBrandsAllOn(t *testing.T) {
 	b := DefaultBrands()
 	for _, n := range BrandNames() {

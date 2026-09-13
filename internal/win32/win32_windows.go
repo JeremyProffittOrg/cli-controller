@@ -106,11 +106,23 @@ const (
 	MF_STRING    = 0x0000
 	MF_SEPARATOR = 0x0800
 
-	BS_AUTOCHECKBOX  = 0x00000003
-	BS_DEFPUSHBUTTON = 0x00000001
-	BS_PUSHBUTTON    = 0x00000000
-	CBS_DROPDOWNLIST = 0x0003
-	CBS_HASSTRINGS   = 0x0200
+	BS_AUTOCHECKBOX      = 0x00000003
+	BS_DEFPUSHBUTTON     = 0x00000001
+	BS_PUSHBUTTON        = 0x00000000
+	CBS_DROPDOWNLIST     = 0x0003
+	CBS_HASSTRINGS       = 0x0200
+	WS_VSCROLL           = 0x00200000
+	WS_BORDER            = 0x00800000
+	LBS_NOTIFY           = 0x0001
+	LBS_HASSTRINGS       = 0x0040
+	LBS_NOINTEGRALHEIGHT = 0x0100
+	LB_ADDSTRING         = 0x0180
+	LB_RESETCONTENT      = 0x0184
+	LB_SETCURSEL         = 0x0186
+	LB_GETCURSEL         = 0x0188
+	LB_GETTEXT           = 0x018A
+	LB_GETCOUNT          = 0x018B
+	LBN_SELCHANGE        = 1
 
 	CW_USEDEFAULT = ^int32(0x7fffffff) + 1 // -2147483648 as int32 via bit
 
@@ -941,6 +953,19 @@ func ComboText(h windows.Handle, idx int) string {
 	Send(h, CB_GETLBTEXT, uintptr(idx), uintptr(unsafe.Pointer(&buf[0])))
 	return syscall.UTF16ToString(buf)
 }
+
+func ListReset(h windows.Handle) { Send(h, LB_RESETCONTENT, 0, 0) }
+
+func ListAdd(h windows.Handle, s string) int {
+	p, _ := syscall.UTF16PtrFromString(s)
+	return int(int32(Send(h, LB_ADDSTRING, 0, uintptr(unsafe.Pointer(p)))))
+}
+
+func ListSet(h windows.Handle, idx int) { Send(h, LB_SETCURSEL, uintptr(idx), 0) }
+
+func ListGet(h windows.Handle) int { return int(int32(Send(h, LB_GETCURSEL, 0, 0))) }
+
+func ListCount(h windows.Handle) int { return int(int32(Send(h, LB_GETCOUNT, 0, 0))) }
 
 func SetWindowText(h windows.Handle, s string) {
 	p, _ := syscall.UTF16PtrFromString(s)

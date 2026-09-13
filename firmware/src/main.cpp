@@ -1,11 +1,11 @@
 #include <M5Dial.h>
 #include <Wire.h>
 #include <vl53l4cd_class.h>
-#include <Adafruit_ADXL345_U.h>
+#include <cstdio>
 #include <cstring>
 #include <math.h>
 
-static const char *kFw = "0.5.0";
+static const char *kFw = "0.6.0";
 static const uint32_t kHostTimeoutMs = 3000;
 static const uint32_t kOverlayHoldMs = 2500;
 static const int kDetentPulses = 4;
@@ -27,144 +27,326 @@ static int rotDeg = 0;
 static M5Canvas canvas(&M5Dial.Display);
 static bool haveCanvas = false;
 static int canvasDepth = 0;
-static TwoWire sensorWire(1);
-static VL53L4CD tof0(&sensorWire, -1);
-static VL53L4CD tof1(&sensorWire, -1);
-static VL53L4CD tof2(&sensorWire, -1);
-static VL53L4CD tof3(&sensorWire, -1);
-static VL53L4CD *tofSensors[4] = {&tof0, &tof1, &tof2, &tof3};
-static bool sensorOK[5] = {false, false, false, false, false};
-static bool sensorReported[5] = {false, false, false, false, false};
-static uint8_t sensorFailures[5] = {0, 0, 0, 0, 0};
+static TwoWire &sensorWire = Wire;
+static VL53L4CD tofDev(&sensorWire, -1);
+static bool tofBegun = false;
+static const uint8_t kMaxSlots = 64;
+static const uint8_t kKindTof = 0;
+static const uint8_t kKindAccel = 1;
+struct SensorSlot {
+  char id[20];
+  uint8_t mux;
+  uint8_t ch;
+  uint8_t kind;
+  bool seen;
+  bool ok;
+  bool reported;
+  uint8_t failures;
+};
+static SensorSlot slots[kMaxSlots];
+static uint8_t slotCount = 0;
+static uint8_t muxAddrs[8];
+static uint8_t muxCount = 0;
 static uint32_t lastTofPollMs = 0;
 static uint32_t lastAccelPollMs = 0;
 static uint32_t lastSensorScanMs = 0;
-static uint8_t nextSensorScan = 0;
-static bool muxOK = false;
-
-static bool muxSelect(uint8_t channel) {
-  sensorWire.beginTransmission(0x70);
-  sensorWire.write((uint8_t)(1U << channel));
-  return sensorWire.endTransmission() == 0;
-}
+static uint8_t nextInit = 0;
+static bool scanRequested = true;
 
 static bool i2cProbe(uint8_t address) {
   sensorWire.beginTransmission(address);
   return sensorWire.endTransmission() == 0;
 }
 
-static void reportSensor(uint8_t channel, const char *kind, bool ok) {
-  if (sensorReported[channel] && sensorOK[channel] == ok) {
-    return;
+static const char *kindName(uint8_t kind) { return kind == kKindAccel ? "accel" : "tof"; }
+
+static void formatId(char *out, size_t n, uint8_t mux, uint8_t ch, uint8_t kind) {
+  if (mux == 0) {
+    snprintf(out, n, "root:%s", kindName(kind));
+  } else {
+    snprintf(out, n, "mux:%x:%u:%s", mux, ch, kindName(kind));
   }
-  sensorOK[channel] = ok;
-  sensorReported[channel] = true;
-  Serial.printf("{\"v\":1,\"t\":\"sensor\",\"ch\":%u,\"kind\":\"%s\",\"ok\":%s}\n",
-                channel, kind, ok ? "true" : "false");
 }
 
-static bool adxlWrite(uint8_t reg, uint8_t value) {
-  if (!muxSelect(4)) return false;
+static void muxIdle() {
+  for (uint8_t i = 0; i < muxCount; ++i) {
+    sensorWire.beginTransmission(muxAddrs[i]);
+    sensorWire.write((uint8_t)0);
+    sensorWire.endTransmission();
+  }
+}
+
+static bool muxSelect(uint8_t mux, uint8_t channel) {
+  muxIdle();
+  if (mux == 0) {
+    return true;
+  }
+  sensorWire.beginTransmission(mux);
+  sensorWire.write((uint8_t)(1U << channel));
+  return sensorWire.endTransmission() == 0;
+}
+
+static int findSlot(uint8_t mux, uint8_t ch, uint8_t kind) {
+  for (uint8_t i = 0; i < slotCount; ++i) {
+    if (slots[i].mux == mux && slots[i].ch == ch && slots[i].kind == kind) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+static int ensureSlot(uint8_t mux, uint8_t ch, uint8_t kind) {
+  int idx = findSlot(mux, ch, kind);
+  if (idx >= 0) {
+    slots[idx].seen = true;
+    return idx;
+  }
+  if (slotCount >= kMaxSlots) {
+    return -1;
+  }
+  idx = slotCount++;
+  formatId(slots[idx].id, sizeof(slots[idx].id), mux, ch, kind);
+  slots[idx].mux = mux;
+  slots[idx].ch = ch;
+  slots[idx].kind = kind;
+  slots[idx].seen = true;
+  slots[idx].ok = false;
+  slots[idx].reported = false;
+  slots[idx].failures = 0;
+  return idx;
+}
+
+static void reportSlot(uint8_t i) {
+  if (i >= slotCount) {
+    return;
+  }
+  SensorSlot &s = slots[i];
+  Serial.printf(
+      "{\"v\":1,\"t\":\"sensor\",\"id\":\"%s\",\"mux\":%u,\"ch\":%u,\"kind\":\"%s\",\"ok\":%s}\n",
+      s.id, s.mux, s.ch, kindName(s.kind), s.ok ? "true" : "false");
+  s.reported = true;
+}
+
+static void setSlotOk(int idx, bool ok) {
+  if (idx < 0) {
+    return;
+  }
+  SensorSlot &s = slots[idx];
+  if (s.reported && s.ok == ok) {
+    return;
+  }
+  s.ok = ok;
+  if (!ok) {
+    s.failures = 0;
+  }
+  reportSlot((uint8_t)idx);
+}
+
+static bool adxlWrite(uint8_t mux, uint8_t ch, uint8_t reg, uint8_t value) {
+  if (!muxSelect(mux, ch)) {
+    return false;
+  }
   sensorWire.beginTransmission(0x53);
   sensorWire.write(reg);
   sensorWire.write(value);
   return sensorWire.endTransmission() == 0;
 }
 
-static bool adxlRead(uint8_t reg, uint8_t *data, size_t count) {
-  if (!muxSelect(4)) return false;
+static bool adxlRead(uint8_t mux, uint8_t ch, uint8_t reg, uint8_t *data, size_t count) {
+  if (!muxSelect(mux, ch)) {
+    return false;
+  }
   sensorWire.beginTransmission(0x53);
   sensorWire.write(reg);
-  if (sensorWire.endTransmission(false) != 0) return false;
-  if (sensorWire.requestFrom((uint8_t)0x53, count) != count) return false;
-  for (size_t i = 0; i < count; ++i) data[i] = sensorWire.read();
+  if (sensorWire.endTransmission(false) != 0) {
+    return false;
+  }
+  if (sensorWire.requestFrom((uint8_t)0x53, count) != count) {
+    return false;
+  }
+  for (size_t i = 0; i < count; ++i) {
+    data[i] = sensorWire.read();
+  }
   return true;
 }
 
-static bool initAccel() {
+static bool initAccelSlot(int idx) {
+  SensorSlot &s = slots[idx];
   uint8_t id = 0;
-  if (!adxlRead(0x00, &id, 1) || id != 0xE5) return false;
-  return adxlWrite(0x31, 0x08) && adxlWrite(0x2C, 0x09) && adxlWrite(0x2D, 0x08);
+  if (!adxlRead(s.mux, s.ch, 0x00, &id, 1) || id != 0xE5) {
+    return false;
+  }
+  return adxlWrite(s.mux, s.ch, 0x31, 0x08) && adxlWrite(s.mux, s.ch, 0x2C, 0x09) &&
+         adxlWrite(s.mux, s.ch, 0x2D, 0x08);
 }
 
-static bool initTof(uint8_t channel) {
-  if (!muxSelect(channel) || !i2cProbe(0x29)) return false;
-  VL53L4CD *sensor = tofSensors[channel];
-  sensor->begin();
-  if (sensor->InitSensor() != 0) return false;
-  if (sensor->VL53L4CD_SetRangeTiming(50, 0) != 0) return false;
-  return sensor->VL53L4CD_StartRanging() == 0;
+static bool initTofSlot(int idx) {
+  SensorSlot &s = slots[idx];
+  if (!muxSelect(s.mux, s.ch) || !i2cProbe(0x29)) {
+    return false;
+  }
+  if (!tofBegun) {
+    tofDev.begin();
+    tofBegun = true;
+  }
+  if (tofDev.InitSensor() != 0) {
+    return false;
+  }
+  if (tofDev.VL53L4CD_SetRangeTiming(50, 0) != 0) {
+    return false;
+  }
+  return tofDev.VL53L4CD_StartRanging() == 0;
 }
 
-static void markMuxMissing() {
-  muxOK = false;
-  for (uint8_t ch = 0; ch < 5; ++ch) {
-    reportSensor(ch, ch == 4 ? "accel" : "tof", false);
-    sensorFailures[ch] = 0;
+static void discoverMuxes() {
+  muxCount = 0;
+  for (uint8_t addr = 0x70; addr <= 0x77; ++addr) {
+    if (!i2cProbe(addr)) {
+      continue;
+    }
+    muxAddrs[muxCount++] = addr;
+  }
+}
+
+static void markUnseenMissing() {
+  for (uint8_t i = 0; i < slotCount; ++i) {
+    if (!slots[i].seen) {
+      setSlotOk(i, false);
+    }
+  }
+}
+
+static void probeBus(uint8_t mux, uint8_t ch) {
+  if (!muxSelect(mux, ch)) {
+    return;
+  }
+  if (i2cProbe(0x29)) {
+    ensureSlot(mux, ch, kKindTof);
+  }
+  if (i2cProbe(0x53)) {
+    ensureSlot(mux, ch, kKindAccel);
+  }
+}
+
+static void discoverSensors() {
+  for (uint8_t i = 0; i < slotCount; ++i) {
+    slots[i].seen = false;
+  }
+  discoverMuxes();
+  for (uint8_t m = 0; m < muxCount; ++m) {
+    for (uint8_t ch = 0; ch < 8; ++ch) {
+      probeBus(muxAddrs[m], ch);
+    }
+  }
+  muxIdle();
+  probeBus(0, 0);
+  markUnseenMissing();
+  Serial.printf("{\"v\":1,\"t\":\"scan\",\"n\":%u}\n", slotCount);
+  for (uint8_t i = 0; i < slotCount; ++i) {
+    if (slots[i].seen && !slots[i].ok) {
+      slots[i].reported = false;
+    }
+    reportSlot(i);
+  }
+}
+
+static void initPending(uint32_t now) {
+  if (now - lastSensorScanMs < 200) {
+    return;
+  }
+  lastSensorScanMs = now;
+  if (slotCount == 0) {
+    return;
+  }
+  for (uint8_t n = 0; n < slotCount; ++n) {
+    uint8_t i = nextInit;
+    nextInit = (uint8_t)((nextInit + 1) % slotCount);
+    if (!slots[i].seen || slots[i].ok) {
+      continue;
+    }
+    bool ok = slots[i].kind == kKindAccel ? initAccelSlot(i) : initTofSlot(i);
+    setSlotOk(i, ok);
+    slots[i].failures = 0;
+    return;
   }
 }
 
 static void scanSensors(uint32_t now) {
-  if (now - lastSensorScanMs < 400) return;
-  lastSensorScanMs = now;
-  if (!muxOK) {
-    sensorWire.beginTransmission(0x70);
-    if (sensorWire.endTransmission() != 0) {
-      markMuxMissing();
-      return;
-    }
-    muxOK = true;
+  if (scanRequested) {
+    scanRequested = false;
+    discoverSensors();
+    lastSensorScanMs = now;
+    return;
   }
-  uint8_t ch = nextSensorScan;
-  nextSensorScan = (uint8_t)((nextSensorScan + 1) % 5);
-  if (sensorOK[ch]) return;
-  bool ok = ch == 4 ? initAccel() : initTof(ch);
-  reportSensor(ch, ch == 4 ? "accel" : "tof", ok);
-  sensorFailures[ch] = 0;
+  initPending(now);
 }
 
-static void sensorFailed(uint8_t channel, const char *kind) {
-  if (++sensorFailures[channel] < 3) return;
-  sensorFailures[channel] = 0;
-  reportSensor(channel, kind, false);
+static void sensorFailed(int idx) {
+  if (idx < 0) {
+    return;
+  }
+  if (++slots[idx].failures < 3) {
+    return;
+  }
+  setSlotOk(idx, false);
 }
 
 static void pollTof(uint32_t now) {
-  if (now - lastTofPollMs < 50) return;
+  if (now - lastTofPollMs < 50) {
+    return;
+  }
   lastTofPollMs = now;
-  for (uint8_t ch = 0; ch < 4; ++ch) {
-    if (!sensorOK[ch]) continue;
-    if (!muxSelect(ch)) { markMuxMissing(); return; }
+  for (uint8_t i = 0; i < slotCount; ++i) {
+    if (slots[i].kind != kKindTof || !slots[i].ok) {
+      continue;
+    }
+    if (!muxSelect(slots[i].mux, slots[i].ch)) {
+      setSlotOk(i, false);
+      continue;
+    }
     uint8_t ready = 0;
-    if (tofSensors[ch]->VL53L4CD_CheckForDataReady(&ready) != 0) {
-      sensorFailed(ch, "tof");
+    if (tofDev.VL53L4CD_CheckForDataReady(&ready) != 0) {
+      sensorFailed(i);
       continue;
     }
-    if (!ready) continue;
+    if (!ready) {
+      continue;
+    }
     VL53L4CD_Result_t result;
-    if (tofSensors[ch]->VL53L4CD_GetResult(&result) != 0 ||
-        tofSensors[ch]->VL53L4CD_ClearInterrupt() != 0) {
-      sensorFailed(ch, "tof");
+    if (tofDev.VL53L4CD_GetResult(&result) != 0 || tofDev.VL53L4CD_ClearInterrupt() != 0) {
+      sensorFailed(i);
       continue;
     }
-    sensorFailures[ch] = 0;
+    slots[i].failures = 0;
     if (result.range_status == 0 && result.distance_mm > 0) {
-      Serial.printf("{\"v\":1,\"t\":\"tof\",\"ch\":%u,\"mm\":%u}\n", ch, result.distance_mm);
+      Serial.printf("{\"v\":1,\"t\":\"tof\",\"id\":\"%s\",\"mux\":%u,\"ch\":%u,\"mm\":%u}\n",
+                    slots[i].id, slots[i].mux, slots[i].ch, result.distance_mm);
     }
   }
 }
 
 static void pollAccel(uint32_t now) {
-  if (!sensorOK[4] || now - lastAccelPollMs < 20) return;
+  if (now - lastAccelPollMs < 20) {
+    return;
+  }
   lastAccelPollMs = now;
-  uint8_t data[6];
-  if (!adxlRead(0x32, data, sizeof(data))) { sensorFailed(4, "accel"); return; }
-  sensorFailures[4] = 0;
-  int16_t rawX = (int16_t)((uint16_t)data[1] << 8 | data[0]);
-  int16_t rawY = (int16_t)((uint16_t)data[3] << 8 | data[2]);
-  int16_t rawZ = (int16_t)((uint16_t)data[5] << 8 | data[4]);
-  Serial.printf("{\"v\":1,\"t\":\"accel\",\"ch\":4,\"x\":%d,\"y\":%d,\"z\":%d}\n",
-                rawX * 4, rawY * 4, rawZ * 4);
+  for (uint8_t i = 0; i < slotCount; ++i) {
+    if (slots[i].kind != kKindAccel || !slots[i].ok) {
+      continue;
+    }
+    uint8_t data[6];
+    if (!adxlRead(slots[i].mux, slots[i].ch, 0x32, data, sizeof(data))) {
+      sensorFailed(i);
+      continue;
+    }
+    slots[i].failures = 0;
+    int16_t rawX = (int16_t)((uint16_t)data[1] << 8 | data[0]);
+    int16_t rawY = (int16_t)((uint16_t)data[3] << 8 | data[2]);
+    int16_t rawZ = (int16_t)((uint16_t)data[5] << 8 | data[4]);
+    Serial.printf(
+        "{\"v\":1,\"t\":\"accel\",\"id\":\"%s\",\"mux\":%u,\"ch\":%u,\"x\":%d,\"y\":%d,\"z\":%d}\n",
+        slots[i].id, slots[i].mux, slots[i].ch, rawX * 4, rawY * 4, rawZ * 4);
+  }
 }
 
 static uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b) {
@@ -459,8 +641,12 @@ static void handleHostLine(const String &line) {
       dirty = true;
     }
   }
+  if (jsonHasType(s, "scan")) {
+    scanRequested = true;
+  }
   if (!wasLink) {
     dirty = true;
+    scanRequested = true;
   }
 }
 
@@ -490,7 +676,7 @@ void setup() {
     delay(10);
   }
   M5Dial.Display.setRotation(0);
-  sensorWire.begin(13, 15, 400000);
+  sensorWire.begin(13, 15, 100000);
   sensorWire.setTimeOut(20);
   encPos = M5Dial.Encoder.read();
   sendHello();
@@ -500,9 +686,7 @@ void setup() {
   screen = SCREEN_WAIT;
   dirty = true;
   paint();
-  for (uint8_t ch = 0; ch < 5; ++ch) {
-    reportSensor(ch, ch == 4 ? "accel" : "tof", false);
-  }
+  scanRequested = true;
 }
 
 void loop() {

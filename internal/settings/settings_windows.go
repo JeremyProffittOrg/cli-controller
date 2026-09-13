@@ -8,36 +8,51 @@ import (
 
 	"github.com/JeremyProffittOrg/cli-controller/internal/config"
 	"github.com/JeremyProffittOrg/cli-controller/internal/overlay"
+	"github.com/JeremyProffittOrg/cli-controller/internal/protocol"
 	"github.com/JeremyProffittOrg/cli-controller/internal/serial"
 	"github.com/JeremyProffittOrg/cli-controller/internal/win32"
 	"golang.org/x/sys/windows"
 )
 
 const (
-	idSave   = 1
-	idCancel = 2
-	idTab    = 100
-	idPort   = 101
-	idDwell  = 102
-	idView   = 103
-	idTheme  = 104
+	idSave     = 1
+	idCancel   = 2
+	idTab      = 100
+	idPort     = 101
+	idDwell    = 102
+	idView     = 103
+	idTheme    = 104
+	idScan     = 160
+	idFound    = 161
+	idControls = 162
+	idAdd      = 163
+	idRemove   = 164
 )
 
 type Dialog struct {
 	hwnd, tab                                                 windows.Handle
-	pages                                                     [4][]windows.Handle
+	pages                                                     [5][]windows.Handle
 	checks                                                    []windows.Handle
 	port, dwell, view, theme, rotation                        windows.Handle
 	kneeMode, leftRaises, rightDirection                      windows.Handle
 	kneeRole, kneeThreshold, kneeStatus                       [4]windows.Handle
 	deskEnabled, deskStatus, deskOrientation, deskSensitivity windows.Handle
 	deskAction                                                [4]windows.Handle
+	foundList, controlList, foundStatus                       windows.Handle
+	ctrlRole, ctrlThreshold, ctrlEnabled                      windows.Handle
+	ctrlOrientation, ctrlSensitivity                          windows.Handle
+	ctrlAction                                                [4]windows.Handle
+	ctrlKindLabel                                             windows.Handle
 	ports                                                     []serial.PortInfo
 	cfg                                                       config.Config
 	sensorOK                                                  [5]bool
+	inventory                                                 []protocol.SensorStatus
+	controls                                                  []config.SensorControl
+	selectedControl                                           int
 	font, fontB, fontTech, bg, panel                          windows.Handle
 	OnSave                                                    func(config.Config)
 	OnClose                                                   func()
+	OnScan                                                    func()
 }
 
 var inst *Dialog
@@ -49,7 +64,7 @@ func New(parent windows.Handle) (*Dialog, error) {
 	if err := win32.RegisterClass("CLIDialSettings", cb, d.bg); err != nil {
 		return nil, err
 	}
-	h, err := win32.CreateWindow(win32.WS_EX_APPWINDOW, win32.WS_CAPTION|win32.WS_SYSMENU, "CLIDialSettings", "CLI Dial // Config", 180, 70, 680, 710, parent, 0)
+	h, err := win32.CreateWindow(win32.WS_EX_APPWINDOW, win32.WS_CAPTION|win32.WS_SYSMENU, "CLIDialSettings", "CLI Dial // Config", 180, 40, 700, 820, parent, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -85,13 +100,35 @@ func proc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 			}
 		}
 	case win32.WM_COMMAND:
-		switch int(win32.LOWORD(wParam)) {
+		id := int(win32.LOWORD(wParam))
+		note := win32.HIWORD(wParam)
+		switch id {
 		case idSave:
 			inst.save()
 			return 0
 		case idCancel:
 			inst.hide()
 			return 0
+		case idScan:
+			if inst.OnScan != nil {
+				inst.OnScan()
+			}
+			return 0
+		case idAdd:
+			inst.addControl()
+			return 0
+		case idRemove:
+			inst.removeControl()
+			return 0
+		case idFound:
+			if note == win32.LBN_SELCHANGE {
+				return 0
+			}
+		case idControls:
+			if note == win32.LBN_SELCHANGE {
+				inst.onControlSelect()
+				return 0
+			}
 		}
 	case win32.WM_CLOSE:
 		inst.hide()
@@ -156,8 +193,8 @@ func (d *Dialog) build() {
 		h := label(page, text, 36, y, 580)
 		win32.Send(h, win32.WM_SETFONT, uintptr(d.fontTech), 1)
 	}
-	d.tab = child(-1, 0, win32.WS_TABSTOP, "SysTabControl32", "", 24, 66, 632, 34, idTab)
-	for i, name := range []string{"Controller", "Display", "Knees", "Desk"} {
+	d.tab = child(-1, 0, win32.WS_TABSTOP, "SysTabControl32", "", 24, 66, 652, 34, idTab)
+	for i, name := range []string{"Controller", "Display", "Knees", "Desk", "Sensors"} {
 		win32.TabInsert(d.tab, i, name)
 	}
 	section(0, "01  WHICH CLIS THIS CONTROLS", 112)
@@ -212,15 +249,40 @@ func (d *Dialog) build() {
 		label(3, name, 48, y+4, 120)
 		d.deskAction[i] = child(3, 0, win32.CBS_DROPDOWNLIST|win32.CBS_HASSTRINGS|win32.WS_TABSTOP, "COMBOBOX", "", 180, y, 240, 100, uintptr(150+i))
 	}
-	save := child(-1, 0, win32.BS_DEFPUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Commit", 430, 625, 100, 32, idSave)
-	cancel := child(-1, 0, win32.BS_PUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Abort", 546, 625, 100, 32, idCancel)
+	section(4, "01  DISCOVERED HARDWARE", 112)
+	d.foundList = child(4, win32.WS_EX_CLIENTEDGE, win32.LBS_NOTIFY|win32.LBS_HASSTRINGS|win32.LBS_NOINTEGRALHEIGHT|win32.WS_VSCROLL|win32.WS_TABSTOP, "LISTBOX", "", 48, 136, 600, 118, idFound)
+	d.foundStatus = label(4, "Mux 0x70-0x77 and the root I2C bus. Press Scan after wiring changes.", 48, 258, 400)
+	child(4, 0, win32.BS_PUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Scan now", 548, 254, 100, 26, idScan)
+	section(4, "02  CONTROLS", 290)
+	d.controlList = child(4, win32.WS_EX_CLIENTEDGE, win32.LBS_NOTIFY|win32.LBS_HASSTRINGS|win32.LBS_NOINTEGRALHEIGHT|win32.WS_VSCROLL|win32.WS_TABSTOP, "LISTBOX", "", 48, 314, 600, 100, idControls)
+	child(4, 0, win32.BS_PUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Add control", 48, 420, 120, 26, idAdd)
+	child(4, 0, win32.BS_PUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Remove", 178, 420, 100, 26, idRemove)
+	section(4, "03  SELECTED CONTROL", 456)
+	d.ctrlKindLabel = label(4, "Select a discovered sensor, then Add control.", 48, 484, 600)
+	label(4, "Role", 48, 516, 80)
+	d.ctrlRole = child(4, 0, win32.CBS_DROPDOWNLIST|win32.CBS_HASSTRINGS|win32.WS_TABSTOP, "COMBOBOX", "", 130, 512, 160, 100, 165)
+	label(4, "Threshold mm", 310, 516, 110)
+	d.ctrlThreshold = child(4, win32.WS_EX_CLIENTEDGE, win32.WS_TABSTOP, "EDIT", "75", 430, 512, 90, 26, 166)
+	d.ctrlEnabled = child(4, 0, win32.BS_AUTOCHECKBOX|win32.WS_TABSTOP, "BUTTON", "Enable desk motion", 48, 548, 220, 24, 167)
+	label(4, "Orientation", 280, 548, 90)
+	d.ctrlOrientation = child(4, 0, win32.CBS_DROPDOWNLIST|win32.CBS_HASSTRINGS|win32.WS_TABSTOP, "COMBOBOX", "", 370, 544, 150, 120, 168)
+	label(4, "Sensitivity mg", 48, 584, 120)
+	d.ctrlSensitivity = child(4, win32.WS_EX_CLIENTEDGE, win32.WS_TABSTOP, "EDIT", "350", 170, 580, 100, 26, 169)
+	dirs2 := []string{"Left", "Right", "Fwd", "Back"}
+	for i, name := range dirs2 {
+		x := int32(48 + i*155)
+		label(4, name, x, 616, 70)
+		d.ctrlAction[i] = child(4, 0, win32.CBS_DROPDOWNLIST|win32.CBS_HASSTRINGS|win32.WS_TABSTOP, "COMBOBOX", "", x, 636, 145, 100, uintptr(170+i))
+	}
+	save := child(-1, 0, win32.BS_DEFPUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Commit", 450, 740, 100, 32, idSave)
+	cancel := child(-1, 0, win32.BS_PUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Abort", 566, 740, 100, 32, idCancel)
 	win32.Send(save, win32.WM_SETFONT, uintptr(d.fontB), 1)
 	win32.Send(cancel, win32.WM_SETFONT, uintptr(d.fontB), 1)
 	d.showPage(0)
 }
 
 func (d *Dialog) showPage(selected int) {
-	if selected < 0 || selected > 3 {
+	if selected < 0 || selected > 4 {
 		selected = 0
 	}
 	for p, handles := range d.pages {
@@ -231,6 +293,9 @@ func (d *Dialog) showPage(selected int) {
 		for _, h := range handles {
 			win32.ShowWindow(h, mode)
 		}
+	}
+	if selected == 4 {
+		d.loadControlFields()
 	}
 }
 func fillCombo(h windows.Handle, values []string, selected int) {
@@ -313,6 +378,18 @@ func (d *Dialog) Show(cfg config.Config, ports []serial.PortInfo) {
 	for i, v := range []string{cfg.DeskLeft, cfg.DeskRight, cfg.DeskForward, cfg.DeskBack} {
 		fillCombo(d.deskAction[i], actions, indexOf(actionIDs, v))
 	}
+	d.controls = append([]config.SensorControl(nil), cfg.Sensors...)
+	d.selectedControl = 0
+	if len(d.controls) == 0 {
+		d.selectedControl = -1
+	}
+	fillCombo(d.ctrlRole, roles, 0)
+	fillCombo(d.ctrlOrientation, []string{"0 degrees", "90 degrees", "180 degrees", "270 degrees"}, 0)
+	for i := 0; i < 4; i++ {
+		fillCombo(d.ctrlAction[i], actions, 0)
+	}
+	d.refreshSensorLists()
+	d.loadControlFields()
 	d.updateStatus()
 	d.showPage(win32.TabGet(d.tab))
 	win32.ShowWindow(d.hwnd, win32.SW_SHOW)
@@ -320,6 +397,36 @@ func (d *Dialog) Show(cfg config.Config, ports []serial.PortInfo) {
 }
 
 func (d *Dialog) SetSensorStatus(status [5]bool) { d.sensorOK = status; d.updateStatus() }
+
+func (d *Dialog) SetInventory(list []protocol.SensorStatus) {
+	d.inventory = append([]protocol.SensorStatus(nil), list...)
+	legacy := [5]bool{}
+	for _, s := range d.inventory {
+		if s.OK && (s.Mux == 0x70 || s.Mux == 0) {
+			if s.Kind == "accel" && s.Ch == 4 {
+				legacy[4] = true
+			} else if s.Kind == "tof" && s.Ch >= 0 && s.Ch < 4 {
+				legacy[s.Ch] = true
+			}
+		}
+		if s.OK && strings.HasPrefix(s.ID, "mux:70:") {
+			if strings.HasSuffix(s.ID, ":accel") {
+				legacy[4] = true
+			} else if strings.Contains(s.ID, ":0:") {
+				legacy[0] = true
+			} else if strings.Contains(s.ID, ":1:") {
+				legacy[1] = true
+			} else if strings.Contains(s.ID, ":2:") {
+				legacy[2] = true
+			} else if strings.Contains(s.ID, ":3:") {
+				legacy[3] = true
+			}
+		}
+	}
+	d.sensorOK = legacy
+	d.refreshSensorLists()
+	d.updateStatus()
+}
 func (d *Dialog) updateStatus() {
 	for i, h := range d.kneeStatus {
 		if h == 0 {
@@ -414,6 +521,20 @@ func (d *Dialog) save() {
 	cfg.DeskRight = comboID(d.deskAction[1], actions)
 	cfg.DeskForward = comboID(d.deskAction[2], actions)
 	cfg.DeskBack = comboID(d.deskAction[3], actions)
+	d.storeControlFields()
+	cfg.Sensors = append([]config.SensorControl(nil), d.controls...)
+	for i := 0; i < 4; i++ {
+		s := config.SensorControl{
+			ID: protocol.FormatSensorID(0x70, i, "tof"), Kind: "tof",
+			Role: cfg.KneeChannels[i].Role, ThresholdMM: cfg.KneeChannels[i].ThresholdMM,
+		}
+		cfg.UpsertSensor(s)
+	}
+	cfg.UpsertSensor(config.SensorControl{
+		ID: protocol.FormatSensorID(0x70, 4, "accel"), Kind: "accel", Enabled: cfg.DeskEnabled,
+		SensitivityMg: cfg.DeskSensitivityMg, Orientation: cfg.DeskOrientation,
+		Left: cfg.DeskLeft, Right: cfg.DeskRight, Forward: cfg.DeskForward, Back: cfg.DeskBack,
+	})
 	cfg.Normalize()
 	if d.OnSave != nil {
 		d.OnSave(cfg)
@@ -421,3 +542,203 @@ func (d *Dialog) save() {
 	d.hide()
 }
 func (d *Dialog) Hwnd() windows.Handle { return d.hwnd }
+
+func hardwareLabel(s protocol.SensorStatus) string {
+	kind := "VL53L4CD"
+	if s.Kind == "accel" {
+		kind = "ADXL345"
+	}
+	state := "Missing"
+	if s.OK {
+		state = "Detected"
+	}
+	if strings.HasPrefix(s.ID, "root:") || s.Mux == 0 && strings.HasPrefix(s.ID, "root") {
+		return fmt.Sprintf("root bus  %s  %s  %s", kind, s.ID, state)
+	}
+	mux := s.Mux
+	if mux == 0 {
+		mux = 0x70
+	}
+	return fmt.Sprintf("mux 0x%02X ch %d  %s  %s  %s", mux, s.Ch, kind, s.ID, state)
+}
+
+func controlLabel(s config.SensorControl) string {
+	if s.Kind == "accel" {
+		on := "off"
+		if s.Enabled {
+			on = "on"
+		}
+		return fmt.Sprintf("%s  ADXL345  desk %s", s.ID, on)
+	}
+	return fmt.Sprintf("%s  VL53L4CD  %s  %d mm", s.ID, s.Role, s.ThresholdMM)
+}
+
+func (d *Dialog) refreshSensorLists() {
+	selFound := win32.ListGet(d.foundList)
+	selCtrl := win32.ListGet(d.controlList)
+	win32.ListReset(d.foundList)
+	if len(d.inventory) == 0 {
+		win32.ListAdd(d.foundList, "(none yet — press Scan now, or wait for the Dial)")
+	} else {
+		for _, s := range d.inventory {
+			win32.ListAdd(d.foundList, hardwareLabel(s))
+		}
+	}
+	if selFound >= 0 && selFound < win32.ListCount(d.foundList) {
+		win32.ListSet(d.foundList, selFound)
+	} else if win32.ListCount(d.foundList) > 0 {
+		win32.ListSet(d.foundList, 0)
+	}
+	win32.ListReset(d.controlList)
+	for _, s := range d.controls {
+		win32.ListAdd(d.controlList, controlLabel(s))
+	}
+	if len(d.controls) == 0 {
+		d.selectedControl = -1
+		return
+	}
+	if selCtrl < 0 || selCtrl >= len(d.controls) {
+		selCtrl = d.selectedControl
+	}
+	if selCtrl < 0 || selCtrl >= len(d.controls) {
+		selCtrl = 0
+	}
+	d.selectedControl = selCtrl
+	win32.ListSet(d.controlList, selCtrl)
+	ok := 0
+	for _, s := range d.inventory {
+		if s.OK {
+			ok++
+		}
+	}
+	win32.SetWindowText(d.foundStatus, fmt.Sprintf("%d device(s) on muxes 0x70-0x77 and the root bus. %d live.", len(d.inventory), ok))
+}
+
+func (d *Dialog) addControl() {
+	idx := win32.ListGet(d.foundList)
+	if idx < 0 || idx >= len(d.inventory) {
+		return
+	}
+	st := d.inventory[idx]
+	id := st.ID
+	if id == "" {
+		id = protocol.FormatSensorID(st.Mux, st.Ch, st.Kind)
+	}
+	for i, s := range d.controls {
+		if s.ID == id {
+			d.storeControlFields()
+			d.selectedControl = i
+			win32.ListSet(d.controlList, i)
+			d.loadControlFields()
+			return
+		}
+	}
+	d.storeControlFields()
+	d.controls = append(d.controls, config.NewControlFromStatus(st, d.cfg))
+	d.selectedControl = len(d.controls) - 1
+	d.refreshSensorLists()
+	d.loadControlFields()
+}
+
+func (d *Dialog) removeControl() {
+	idx := win32.ListGet(d.controlList)
+	if idx < 0 || idx >= len(d.controls) {
+		return
+	}
+	d.controls = append(d.controls[:idx], d.controls[idx+1:]...)
+	if idx >= len(d.controls) {
+		idx = len(d.controls) - 1
+	}
+	d.selectedControl = idx
+	d.refreshSensorLists()
+	d.loadControlFields()
+}
+
+func (d *Dialog) onControlSelect() {
+	d.storeControlFields()
+	d.selectedControl = win32.ListGet(d.controlList)
+	d.loadControlFields()
+}
+
+func (d *Dialog) storeControlFields() {
+	i := d.selectedControl
+	if i < 0 || i >= len(d.controls) {
+		return
+	}
+	s := d.controls[i]
+	if s.Kind == "accel" {
+		s.Enabled = win32.GetCheck(d.ctrlEnabled)
+		s.Orientation = win32.ComboGet(d.ctrlOrientation) * 90
+		s.SensitivityMg = parseInt(d.ctrlSensitivity, 350)
+		actions := []string{"none", "tile", "stack"}
+		s.Left = comboID(d.ctrlAction[0], actions)
+		s.Right = comboID(d.ctrlAction[1], actions)
+		s.Forward = comboID(d.ctrlAction[2], actions)
+		s.Back = comboID(d.ctrlAction[3], actions)
+	} else {
+		s.Role = comboID(d.ctrlRole, []string{"off", "left", "right"})
+		s.ThresholdMM = parseInt(d.ctrlThreshold, 75)
+	}
+	d.controls[i] = s
+	for ch := 0; ch < 4; ch++ {
+		if s.ID == protocol.FormatSensorID(0x70, ch, "tof") && s.Kind == "tof" {
+			win32.ComboSet(d.kneeRole[ch], indexOf([]string{"off", "left", "right"}, s.Role))
+			win32.SetWindowText(d.kneeThreshold[ch], strconv.Itoa(s.ThresholdMM))
+		}
+	}
+	if s.ID == protocol.FormatSensorID(0x70, 4, "accel") && s.Kind == "accel" {
+		win32.SetCheck(d.deskEnabled, s.Enabled)
+		win32.ComboSet(d.deskOrientation, s.Orientation/90)
+		win32.SetWindowText(d.deskSensitivity, strconv.Itoa(s.SensitivityMg))
+		actions := []string{"none", "tile", "stack"}
+		win32.ComboSet(d.deskAction[0], indexOf(actions, s.Left))
+		win32.ComboSet(d.deskAction[1], indexOf(actions, s.Right))
+		win32.ComboSet(d.deskAction[2], indexOf(actions, s.Forward))
+		win32.ComboSet(d.deskAction[3], indexOf(actions, s.Back))
+	}
+}
+
+func (d *Dialog) loadControlFields() {
+	i := d.selectedControl
+	show := func(h windows.Handle, on bool) {
+		mode := win32.SW_HIDE
+		if on {
+			mode = win32.SW_SHOW
+		}
+		if h != 0 {
+			win32.ShowWindow(h, mode)
+		}
+	}
+	tofOn := false
+	accelOn := false
+	if i < 0 || i >= len(d.controls) {
+		win32.SetWindowText(d.ctrlKindLabel, "Select a discovered sensor, then Add control.")
+	} else {
+		s := d.controls[i]
+		if s.Kind == "accel" {
+			accelOn = true
+			win32.SetWindowText(d.ctrlKindLabel, fmt.Sprintf("%s  ADXL345 desk-motion control", s.ID))
+			win32.SetCheck(d.ctrlEnabled, s.Enabled)
+			win32.ComboSet(d.ctrlOrientation, s.Orientation/90)
+			win32.SetWindowText(d.ctrlSensitivity, strconv.Itoa(s.SensitivityMg))
+			actions := []string{"none", "tile", "stack"}
+			win32.ComboSet(d.ctrlAction[0], indexOf(actions, s.Left))
+			win32.ComboSet(d.ctrlAction[1], indexOf(actions, s.Right))
+			win32.ComboSet(d.ctrlAction[2], indexOf(actions, s.Forward))
+			win32.ComboSet(d.ctrlAction[3], indexOf(actions, s.Back))
+		} else {
+			tofOn = true
+			win32.SetWindowText(d.ctrlKindLabel, fmt.Sprintf("%s  VL53L4CD distance control", s.ID))
+			win32.ComboSet(d.ctrlRole, indexOf([]string{"off", "left", "right"}, s.Role))
+			win32.SetWindowText(d.ctrlThreshold, strconv.Itoa(s.ThresholdMM))
+		}
+	}
+	show(d.ctrlRole, tofOn)
+	show(d.ctrlThreshold, tofOn)
+	show(d.ctrlEnabled, accelOn)
+	show(d.ctrlOrientation, accelOn)
+	show(d.ctrlSensitivity, accelOn)
+	for _, h := range d.ctrlAction {
+		show(h, accelOn)
+	}
+}

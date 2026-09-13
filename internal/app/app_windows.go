@@ -38,6 +38,7 @@ type App struct {
 	mutex     windows.Handle
 	motion    *motion.Engine
 	sensorOK  [5]bool
+	inventory []protocol.SensorStatus
 }
 
 type connEv struct {
@@ -144,6 +145,7 @@ func Run() error {
 	}
 	a.settings = dlg
 	dlg.OnSave = a.saveSettings
+	dlg.OnScan = a.requestScan
 	a.restartSerial()
 	win32.SetTimer(h, 1, 125)
 	win32.SetTimer(h, 2, 1000)
@@ -261,16 +263,17 @@ func (a *App) handleConn(ok bool, info serial.PortInfo) {
 		}
 		a.refresh()
 		a.sendState()
+		a.requestScan()
 	} else {
 		a.log.Printf("disconnected")
 		a.stopDwell()
 		a.overlay.Hide()
-		for ch := range a.sensorOK {
-			a.sensorOK[ch] = false
-			if ch < 4 {
-				a.applyMotion(a.motion.Connected(ch, false))
-			}
+		for i := range a.inventory {
+			a.inventory[i].OK = false
+			a.applyMotion(a.motion.Connected(a.inventory[i].ID, false))
 		}
+		a.sensorOK = [5]bool{}
+		a.settings.SetInventory(a.inventory)
 		a.settings.SetSensorStatus(a.sensorOK)
 	}
 }
@@ -286,20 +289,71 @@ func (a *App) handleMsg(m protocol.DeviceMsg) {
 			a.activate()
 		}
 	case "sensor":
-		if m.Ch >= 0 && m.Ch < len(a.sensorOK) {
-			a.sensorOK[m.Ch] = m.OK
-			if m.Ch < 4 {
-				a.applyMotion(a.motion.Connected(m.Ch, m.OK))
-			}
-			a.settings.SetSensorStatus(a.sensorOK)
-		}
+		a.upsertInventory(m)
+		a.applyMotion(a.motion.Connected(m.SensorID(), m.OK))
+		a.settings.SetInventory(a.inventory)
+		a.settings.SetSensorStatus(a.sensorOK)
 	case "tof":
-		a.applyMotion(a.motion.Distance(m.Ch, m.MM, time.Now()))
+		a.applyMotion(a.motion.Distance(m.SensorID(), m.MM, time.Now()))
 	case "accel":
-		if m.Ch == 4 {
-			a.applyMotion(a.motion.Accel(m.X, m.Y, m.Z, time.Now()))
+		a.applyMotion(a.motion.Accel(m.SensorID(), m.X, m.Y, m.Z, time.Now()))
+	case "scan":
+		a.settings.SetInventory(a.inventory)
+	}
+}
+
+func (a *App) upsertInventory(m protocol.DeviceMsg) {
+	st := protocol.SensorStatus{
+		ID:   m.SensorID(),
+		Kind: m.Kind,
+		Mux:  m.Mux,
+		Ch:   m.Ch,
+		OK:   m.OK,
+	}
+	if st.Kind == "" {
+		if m.T == "accel" {
+			st.Kind = "accel"
+		} else {
+			st.Kind = "tof"
 		}
 	}
+	for i := range a.inventory {
+		if a.inventory[i].ID == st.ID {
+			a.inventory[i] = st
+			a.syncLegacyStatus()
+			return
+		}
+	}
+	a.inventory = append(a.inventory, st)
+	a.syncLegacyStatus()
+}
+
+func (a *App) syncLegacyStatus() {
+	var status [5]bool
+	for _, s := range a.inventory {
+		if !s.OK {
+			continue
+		}
+		if s.Kind == "accel" && (s.ID == protocol.FormatSensorID(0x70, 4, "accel") || s.Ch == 4) {
+			status[4] = true
+			continue
+		}
+		if s.Kind == "tof" && s.Ch >= 0 && s.Ch < 4 && (s.Mux == 0x70 || s.Mux == 0) {
+			status[s.Ch] = true
+		}
+	}
+	a.sensorOK = status
+}
+
+func (a *App) requestScan() {
+	if a.ser == nil {
+		return
+	}
+	b, err := protocol.Scan()
+	if err != nil {
+		return
+	}
+	_ = a.ser.Send(b)
 }
 
 func (a *App) applyMotion(events []motion.Event) {
@@ -413,8 +467,10 @@ func (a *App) openSettings() {
 	if err != nil {
 		ports = nil
 	}
+	a.settings.SetInventory(a.inventory)
 	a.settings.SetSensorStatus(a.sensorOK)
 	a.settings.Show(a.cfg, ports)
+	a.requestScan()
 }
 
 func (a *App) saveSettings(cfg config.Config) {

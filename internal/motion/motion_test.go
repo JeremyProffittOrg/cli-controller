@@ -2,14 +2,18 @@ package motion
 
 import (
 	"github.com/JeremyProffittOrg/cli-controller/internal/config"
+	"github.com/JeremyProffittOrg/cli-controller/internal/protocol"
 	"testing"
 	"time"
 )
 
+func tofID(ch int) string { return protocol.FormatSensorID(0x70, ch, "tof") }
+func accelID() string     { return protocol.FormatSensorID(0x70, 4, "accel") }
+
 func feed(e *Engine, ch int, mm int, at time.Time) []Event {
 	var out []Event
 	for i := 0; i < 3; i++ {
-		out = append(out, e.Distance(ch, mm, at.Add(time.Duration(i)*10*time.Millisecond))...)
+		out = append(out, e.Distance(tofID(ch), mm, at.Add(time.Duration(i)*10*time.Millisecond))...)
 	}
 	return out
 }
@@ -81,7 +85,7 @@ func TestSideORPreventsDuplicateAndHandoff(t *testing.T) {
 		t.Fatalf("overlap %v", got)
 	}
 	release(e, 0, 500, now.Add(1200*time.Millisecond))
-	if got := e.Connected(0, false); len(got) != 0 {
+	if got := e.Connected(tofID(0), false); len(got) != 0 {
 		t.Fatalf("handoff %v", got)
 	}
 }
@@ -107,18 +111,40 @@ func TestDeskDominantDirectionAndRelease(t *testing.T) {
 	c.DeskSensitivityMg = 350
 	e := New(c)
 	now := time.Unix(0, 0)
-	e.Accel(0, 0, 1000, now)
-	got := e.Accel(-500, 100, 1000, now.Add(10*time.Millisecond))
+	id := accelID()
+	e.Accel(id, 0, 0, 1000, now)
+	got := e.Accel(id, -500, 100, 1000, now.Add(10*time.Millisecond))
 	if len(got) != 1 || got[0].Kind != Tile {
 		t.Fatalf("left %v", got)
 	}
-	if got = e.Accel(600, 0, 1000, now.Add(20*time.Millisecond)); len(got) != 0 {
+	if got = e.Accel(id, 600, 0, 1000, now.Add(20*time.Millisecond)); len(got) != 0 {
 		t.Fatalf("rebound %v", got)
 	}
-	e.Accel(0, 0, 1000, now.Add(100*time.Millisecond))
-	e.Accel(0, 0, 1000, now.Add(700*time.Millisecond))
-	got = e.Accel(600, 0, 1000, now.Add(time.Second))
+	e.Accel(id, 0, 0, 1000, now.Add(100*time.Millisecond))
+	e.Accel(id, 0, 0, 1000, now.Add(700*time.Millisecond))
+	got = e.Accel(id, 600, 0, 1000, now.Add(time.Second))
 	if len(got) != 1 || got[0].Kind != Stack {
 		t.Fatalf("right %v", got)
+	}
+}
+
+func TestExtraMuxSensorIsIndependent(t *testing.T) {
+	c := config.Default()
+	c.KneeLeftRaises = 1
+	c.Sensors = append(c.Sensors, config.SensorControl{
+		ID: protocol.FormatSensorID(0x71, 0, "tof"), Kind: "tof", Role: "left", ThresholdMM: 75,
+	})
+	e := New(c)
+	now := time.Unix(0, 0)
+	id := protocol.FormatSensorID(0x71, 0, "tof")
+	for i := 0; i < 3; i++ {
+		e.Distance(id, 500, now.Add(time.Duration(i)*10*time.Millisecond))
+	}
+	var got []Event
+	for i := 0; i < 3; i++ {
+		got = append(got, e.Distance(id, 400, now.Add(time.Second+time.Duration(i)*10*time.Millisecond))...)
+	}
+	if len(got) != 1 || got[0].Kind != Show {
+		t.Fatalf("extra mux %v", got)
 	}
 }

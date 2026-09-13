@@ -16,6 +16,7 @@ type DeviceMsg struct {
 	Dev   string `json:"dev,omitempty"`
 	D     int    `json:"d,omitempty"`
 	ID    string `json:"id,omitempty"`
+	Mux   int    `json:"mux,omitempty"`
 	Ch    int    `json:"ch,omitempty"`
 	Kind  string `json:"kind,omitempty"`
 	OK    bool   `json:"ok,omitempty"`
@@ -23,8 +24,48 @@ type DeviceMsg struct {
 	X     int    `json:"x,omitempty"`
 	Y     int    `json:"y,omitempty"`
 	Z     int    `json:"z,omitempty"`
+	N     int    `json:"n,omitempty"`
 	Raw   string `json:"-"`
 	Hello bool   `json:"-"`
+}
+
+type SensorStatus struct {
+	ID   string
+	Kind string
+	Mux  int
+	Ch   int
+	OK   bool
+}
+
+func FormatSensorID(mux, ch int, kind string) string {
+	kind = strings.ToLower(strings.TrimSpace(kind))
+	if kind == "" {
+		kind = "tof"
+	}
+	if mux == 0 {
+		return "root:" + kind
+	}
+	return fmt.Sprintf("mux:%x:%d:%s", mux, ch, kind)
+}
+
+func (m DeviceMsg) SensorID() string {
+	if m.ID != "" {
+		return m.ID
+	}
+	kind := m.Kind
+	if kind == "" {
+		switch m.T {
+		case "accel":
+			kind = "accel"
+		default:
+			kind = "tof"
+		}
+	}
+	mux := m.Mux
+	if mux == 0 {
+		mux = 0x70
+	}
+	return FormatSensorID(mux, m.Ch, kind)
 }
 
 type HostMsg struct {
@@ -84,6 +125,10 @@ func HelloHost() ([]byte, error) {
 
 func Ping() ([]byte, error) {
 	return EncodeHost(HostMsg{V: 1, T: "ping"})
+}
+
+func Scan() ([]byte, error) {
+	return EncodeHost(HostMsg{V: 1, T: "scan"})
 }
 
 func State(link bool, n, sel int, brand, title string) ([]byte, error) {

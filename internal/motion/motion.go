@@ -30,18 +30,22 @@ type channelState struct {
 	connected    bool
 }
 
-type Engine struct {
-	cfg                config.Config
-	channels           [4]channelState
-	sideRaised         map[string]bool
-	leftCount          int
-	lastLeft           time.Time
-	armed              bool
-	deadline           time.Time
+type deskState struct {
 	gravityX, gravityY float64
 	haveGravity        bool
-	deskLocked         bool
-	deskReleaseSince   time.Time
+	locked             bool
+	releaseSince       time.Time
+}
+
+type Engine struct {
+	cfg        config.Config
+	tof        map[string]*channelState
+	desk       map[string]*deskState
+	sideRaised map[string]bool
+	leftCount  int
+	lastLeft   time.Time
+	armed      bool
+	deadline   time.Time
 }
 
 func New(cfg config.Config) *Engine { e := &Engine{}; e.Configure(cfg); return e }
@@ -49,16 +53,40 @@ func New(cfg config.Config) *Engine { e := &Engine{}; e.Configure(cfg); return e
 func (e *Engine) Configure(cfg config.Config) {
 	cfg.Normalize()
 	e.cfg = cfg
+	if e.tof == nil {
+		e.tof = map[string]*channelState{}
+	}
+	if e.desk == nil {
+		e.desk = map[string]*deskState{}
+	}
 	if e.sideRaised == nil {
 		e.sideRaised = map[string]bool{"left": false, "right": false}
 	}
 }
 
-func (e *Engine) Connected(ch int, ok bool) []Event {
-	if ch < 0 || ch >= len(e.channels) {
+func (e *Engine) tofState(id string) *channelState {
+	s := e.tof[id]
+	if s == nil {
+		s = &channelState{}
+		e.tof[id] = s
+	}
+	return s
+}
+
+func (e *Engine) deskState(id string) *deskState {
+	s := e.desk[id]
+	if s == nil {
+		s = &deskState{}
+		e.desk[id] = s
+	}
+	return s
+}
+
+func (e *Engine) Connected(id string, ok bool) []Event {
+	if id == "" {
 		return nil
 	}
-	s := &e.channels[ch]
+	s := e.tofState(id)
 	s.connected = ok
 	if !ok {
 		s.samples = nil
@@ -69,11 +97,11 @@ func (e *Engine) Connected(ch int, ok bool) []Event {
 	return e.updateSides(time.Now())
 }
 
-func (e *Engine) Distance(ch, mm int, now time.Time) []Event {
-	if ch < 0 || ch >= len(e.channels) || mm <= 0 || mm > 4000 {
+func (e *Engine) Distance(id string, mm int, now time.Time) []Event {
+	if id == "" || mm <= 0 || mm > 4000 {
 		return nil
 	}
-	s := &e.channels[ch]
+	s := e.tofState(id)
 	s.connected = true
 	s.samples = append(s.samples, mm)
 	if len(s.samples) > 3 {
@@ -87,7 +115,11 @@ func (e *Engine) Distance(ch, mm int, now time.Time) []Event {
 		s.baseline = float64(med)
 		return nil
 	}
-	threshold := e.cfg.KneeChannels[ch].ThresholdMM
+	ctrl, ok := e.cfg.FindSensor(id)
+	if !ok || ctrl.Kind != "tof" || ctrl.Role == "off" {
+		return nil
+	}
+	threshold := ctrl.ThresholdMM
 	drop := s.baseline - float64(med)
 	if !s.raised && drop >= float64(threshold) {
 		s.raised = true
@@ -116,8 +148,12 @@ func (e *Engine) updateSides(now time.Time) []Event {
 	var out []Event
 	for _, side := range []string{"left", "right"} {
 		raised := false
-		for i := range e.channels {
-			if e.cfg.KneeChannels[i].Role == side && e.channels[i].connected && e.channels[i].raised {
+		for _, ctrl := range e.cfg.Sensors {
+			if ctrl.Kind != "tof" || ctrl.Role != side {
+				continue
+			}
+			s := e.tof[ctrl.ID]
+			if s != nil && s.connected && s.raised {
 				raised = true
 				break
 			}
@@ -170,43 +206,43 @@ func (e *Engine) Tick(now time.Time) []Event {
 	return nil
 }
 
-func (e *Engine) Accel(x, y, _ int, now time.Time) []Event {
-	if !e.cfg.DeskEnabled {
-		e.haveGravity = false
-		e.deskLocked = false
+func (e *Engine) Accel(id string, x, y, _ int, now time.Time) []Event {
+	ctrl, ok := e.cfg.FindSensor(id)
+	if !ok || ctrl.Kind != "accel" || !ctrl.Enabled {
 		return nil
 	}
-	if !e.haveGravity {
-		e.gravityX = float64(x)
-		e.gravityY = float64(y)
-		e.haveGravity = true
+	s := e.deskState(id)
+	if !s.haveGravity {
+		s.gravityX = float64(x)
+		s.gravityY = float64(y)
+		s.haveGravity = true
 		return nil
 	}
-	dx, dy := float64(x)-e.gravityX, float64(y)-e.gravityY
-	e.gravityX += dx * 0.08
-	e.gravityY += dy * 0.08
-	rx, ry := rotate(dx, dy, e.cfg.DeskOrientation)
+	dx, dy := float64(x)-s.gravityX, float64(y)-s.gravityY
+	s.gravityX += dx * 0.08
+	s.gravityY += dy * 0.08
+	rx, ry := rotate(dx, dy, ctrl.Orientation)
 	absX, absY := abs(rx), abs(ry)
 	peak := absX
 	if absY > peak {
 		peak = absY
 	}
-	release := float64(e.cfg.DeskSensitivityMg) * 0.4
-	if e.deskLocked {
+	release := float64(ctrl.SensitivityMg) * 0.4
+	if s.locked {
 		if peak < release {
-			if e.deskReleaseSince.IsZero() {
-				e.deskReleaseSince = now
+			if s.releaseSince.IsZero() {
+				s.releaseSince = now
 			}
-			if now.Sub(e.deskReleaseSince) >= 500*time.Millisecond {
-				e.deskLocked = false
-				e.deskReleaseSince = time.Time{}
+			if now.Sub(s.releaseSince) >= 500*time.Millisecond {
+				s.locked = false
+				s.releaseSince = time.Time{}
 			}
 		} else {
-			e.deskReleaseSince = time.Time{}
+			s.releaseSince = time.Time{}
 		}
 		return nil
 	}
-	if peak < float64(e.cfg.DeskSensitivityMg) {
+	if peak < float64(ctrl.SensitivityMg) {
 		return nil
 	}
 	dir := ""
@@ -223,8 +259,8 @@ func (e *Engine) Accel(x, y, _ int, now time.Time) []Event {
 			dir = "back"
 		}
 	}
-	e.deskLocked = true
-	action := map[string]string{"left": e.cfg.DeskLeft, "right": e.cfg.DeskRight, "forward": e.cfg.DeskForward, "back": e.cfg.DeskBack}[dir]
+	s.locked = true
+	action := map[string]string{"left": ctrl.Left, "right": ctrl.Right, "forward": ctrl.Forward, "back": ctrl.Back}[dir]
 	if action == "tile" {
 		return []Event{{Kind: Tile}}
 	}
