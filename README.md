@@ -167,7 +167,7 @@ flowchart TB
 
 1. Disconnect USB power before changing cables.
 2. Connect M5Dial Port A to the PCA9548 upstream connector.
-3. Connect VL53L4CD and ADXL345 boards to any PCA9548 channel, or to the root bus. Plug the mux into M5Dial Port B (GPIO2 SDA, GPIO1 SCL) or Port A (GPIO13 SDA, GPIO15 SCL). The firmware tries Port B first.
+3. Connect VL53L4CD and ADXL345 boards to any PCA9548 channel, or to the root bus. Plug the mux into M5Dial Port A or Port B. A scan tries both ports and keeps the one that answers. Port A is GPIO13 SDA and GPIO15 SCL. Port B is GPIO2 SDA and GPIO1 SCL. Only one Grove port can carry I2C at a time.
 4. Add more PCA9548 boards at `0x71`-`0x77` if you need more than eight channels.
 5. Check the SDA, SCL, power, and ground labels on each board. Do not rely on cable color alone.
 6. Reconnect USB. The firmware scans muxes, channels, and the root bus automatically.

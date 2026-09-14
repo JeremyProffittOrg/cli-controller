@@ -303,6 +303,8 @@ func (a *App) handleMsg(m protocol.DeviceMsg) {
 		a.settings.SetLive(a.inventory)
 	case "scan":
 		a.settings.SetInventory(a.inventory)
+	case "i2c":
+		a.settings.SetI2CPort(m.Port, m.Sda, m.Scl)
 	}
 }
 

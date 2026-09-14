@@ -25,6 +25,9 @@ type DeviceMsg struct {
 	Y     int    `json:"y,omitempty"`
 	Z     int    `json:"z,omitempty"`
 	N     int    `json:"n,omitempty"`
+	Port  string `json:"port,omitempty"`
+	Sda   int    `json:"sda,omitempty"`
+	Scl   int    `json:"scl,omitempty"`
 	Raw   string `json:"-"`
 	Hello bool   `json:"-"`
 }

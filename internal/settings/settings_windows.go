@@ -56,6 +56,8 @@ type Dialog struct {
 	OnSave                                                    func(config.Config)
 	OnClose                                                   func()
 	OnScan                                                    func()
+	i2cPort                                                   string
+	i2cSda, i2cScl                                            int
 }
 
 var inst *Dialog
@@ -409,6 +411,13 @@ func (d *Dialog) SetInventory(list []protocol.SensorStatus) {
 	d.refreshSensorLists()
 }
 
+func (d *Dialog) SetI2CPort(port string, sda, scl int) {
+	d.i2cPort = port
+	d.i2cSda = sda
+	d.i2cScl = scl
+	d.updateLiveReadouts()
+}
+
 func (d *Dialog) SetLive(list []protocol.SensorStatus) {
 	d.inventory = append([]protocol.SensorStatus(nil), list...)
 	d.syncLegacyFromInventory()
@@ -544,7 +553,13 @@ func (d *Dialog) updateLiveReadouts() {
 		if idx >= 0 && idx < len(d.inventory) {
 			sel = "  Selected " + d.inventory[idx].LiveText()
 		}
-		win32.SetWindowText(d.foundStatus, fmt.Sprintf("%d device(s), %d connected, %d streaming.%s", len(d.inventory), ok, live, sel))
+		port := "Port A or B"
+		if d.i2cPort == "a" {
+			port = fmt.Sprintf("Port A (GPIO%d SDA, GPIO%d SCL)", d.i2cSda, d.i2cScl)
+		} else if d.i2cPort == "b" {
+			port = fmt.Sprintf("Port B (GPIO%d SDA, GPIO%d SCL)", d.i2cSda, d.i2cScl)
+		}
+		win32.SetWindowText(d.foundStatus, fmt.Sprintf("%s. %d device(s), %d connected, %d streaming.%s", port, len(d.inventory), ok, live, sel))
 	}
 }
 func (d *Dialog) hide() {

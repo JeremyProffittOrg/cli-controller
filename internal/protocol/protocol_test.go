@@ -74,6 +74,13 @@ func TestParseSensorMessages(t *testing.T) {
 	}
 }
 
+func TestParseI2CPortMessage(t *testing.T) {
+	m, err := ParseDeviceLine(`{"v":1,"t":"i2c","port":"b","sda":2,"scl":1,"n":5}`)
+	if err != nil || m.T != "i2c" || m.Port != "b" || m.Sda != 2 || m.Scl != 1 || m.N != 5 {
+		t.Fatalf("i2c %+v %v", m, err)
+	}
+}
+
 func TestScanHostMessage(t *testing.T) {
 	b, err := Scan()
 	if err != nil {

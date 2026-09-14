@@ -3,7 +3,7 @@
 #include <cstring>
 #include <math.h>
 
-static const char *kFw = "0.6.2";
+static const char *kFw = "0.6.3";
 static const uint32_t kHostTimeoutMs = 3000;
 static const uint32_t kOverlayHoldMs = 2500;
 static const int kDetentPulses = 4;
@@ -53,9 +53,9 @@ static bool scanRequested = true;
 
 static m5::I2C_Class *bus = &M5.Ex_I2C;
 static bool exReady = false;
-static bool pinsLocked = false;
 static uint8_t i2cSda = 2;
 static uint8_t i2cScl = 1;
+static char i2cPort = 'b';
 
 static bool i2cProbe(uint8_t address) {
   if (bus == &M5.Ex_I2C && !exReady) {
@@ -281,13 +281,20 @@ static bool initTofSlot(int idx) {
   return tofWr8(0x0087, 0x21);
 }
 
-static bool busHasMuxOrSensor() {
+static int countHits() {
+  int n = 0;
   for (uint8_t addr = 0x70; addr <= 0x77; ++addr) {
     if (bus->scanID(addr, kI2CHz)) {
-      return true;
+      n++;
     }
   }
-  return bus->scanID(kTofAddr, kI2CHz) || bus->scanID(kAccelAddr, kI2CHz);
+  if (bus->scanID(kTofAddr, kI2CHz)) {
+    n++;
+  }
+  if (bus->scanID(kAccelAddr, kI2CHz)) {
+    n++;
+  }
+  return n;
 }
 
 static bool tryPins(int sda, int scl) {
@@ -300,21 +307,29 @@ static bool tryPins(int sda, int scl) {
   exReady = true;
   i2cSda = (uint8_t)sda;
   i2cScl = (uint8_t)scl;
-  return busHasMuxOrSensor();
+  i2cPort = (sda == 13 || sda == 15 || scl == 13 || scl == 15) ? 'a' : 'b';
+  return true;
 }
 
 static void pickBus() {
-  if (pinsLocked) {
-    return;
+  const int cand[][2] = {{2, 1}, {1, 2}, {13, 15}, {15, 13}};
+  int bestN = -1;
+  int bestSda = 2;
+  int bestScl = 1;
+  for (int i = 0; i < 4; ++i) {
+    if (!tryPins(cand[i][0], cand[i][1])) {
+      continue;
+    }
+    int n = countHits();
+    if (n > bestN) {
+      bestN = n;
+      bestSda = cand[i][0];
+      bestScl = cand[i][1];
+    }
   }
-  // Port B first: Grove yellow is G2, white is G1 on M5Dial.
-  if (tryPins(2, 1) || tryPins(1, 2) || tryPins(13, 15)) {
-    pinsLocked = true;
-    Serial.printf("{\"v\":1,\"t\":\"i2c\",\"sda\":%u,\"scl\":%u}\n", i2cSda, i2cScl);
-    return;
-  }
-  tryPins(2, 1);
-  Serial.printf("{\"v\":1,\"t\":\"i2c\",\"sda\":%u,\"scl\":%u}\n", i2cSda, i2cScl);
+  tryPins(bestSda, bestScl);
+  Serial.printf("{\"v\":1,\"t\":\"i2c\",\"port\":\"%c\",\"sda\":%u,\"scl\":%u,\"n\":%d}\n",
+                i2cPort, i2cSda, i2cScl, bestN < 0 ? 0 : bestN);
 }
 
 static void discoverMuxes() {
