@@ -5,7 +5,7 @@
 #include <cstring>
 #include <math.h>
 
-static const char *kFw = "0.6.4";
+static const char *kFw = "0.6.5";
 static const uint32_t kHostTimeoutMs = 3000;
 static const uint32_t kOverlayHoldMs = 2500;
 static const int kDetentPulses = 4;
@@ -208,11 +208,11 @@ static bool initTofSlot(int idx) {
   if (tofDev.InitSensor() != 0) {
     return false;
   }
-  if (tofDev.VL53L4CD_SetRangeTiming(100, 0) != 0) {
+  if (tofDev.VL53L4CD_SetRangeTiming(200, 0) != 0) {
     return false;
   }
-  tofDev.VL53L4CD_SetSignalThreshold(200);
-  tofDev.VL53L4CD_SetSigmaThreshold(80);
+  tofDev.VL53L4CD_SetSignalThreshold(50);
+  tofDev.VL53L4CD_SetSigmaThreshold(120);
   return tofDev.VL53L4CD_StartRanging() == 0;
 }
 
@@ -380,7 +380,14 @@ static void pollTof(uint32_t now) {
       setSlotOk(i, false);
       return;
     }
-    delay(55);
+    uint8_t ready = 0;
+    uint32_t t0 = millis();
+    while (millis() - t0 < 220) {
+      if (tofDev.VL53L4CD_CheckForDataReady(&ready) == 0 && ready) {
+        break;
+      }
+      delay(5);
+    }
     VL53L4CD_Result_t result;
     if (tofDev.VL53L4CD_GetResult(&result) != 0) {
       sensorFailed(i);
@@ -388,9 +395,9 @@ static void pollTof(uint32_t now) {
     }
     tofDev.VL53L4CD_ClearInterrupt();
     slots[i].failures = 0;
-    Serial.printf("{\"v\":1,\"t\":\"tof\",\"id\":\"%s\",\"mux\":%u,\"ch\":%u,\"mm\":%u,\"st\":%u,\"spad\":%u}\n",
+    Serial.printf("{\"v\":1,\"t\":\"tof\",\"id\":\"%s\",\"mux\":%u,\"ch\":%u,\"mm\":%u,\"st\":%u,\"sig\":%u}\n",
                   slots[i].id, slots[i].mux, slots[i].ch, result.distance_mm, result.range_status,
-                  result.number_of_spad);
+                  result.signal_rate_kcps);
     return;
   }
 }
