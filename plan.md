@@ -41,13 +41,13 @@ Every I2C sensor path in `C:\dev\cli-controller\firmware\src\main.cpp` is bounde
 - [x] protocol-fields — `sg`, `addr`, `msg` parsed; `LiveText` shows sigma; `go test ./internal/protocol` exits 0.
 - [x] motion-time-baseline — baseline EMA is wall-clock based (tau 6 s); `go test ./internal/motion` exits 0.
 - [x] dial-log-passthrough — firmware `log` lines land in the host log as `dial: ...`.
-- [ ] host-live-validation — installed host connects to firmware 0.7.0 and the Sensors tab shows live readings for all five devices.
+- [x] host-live-validation — installed host connects to firmware 0.7.0 and the Sensors tab shows live readings for all five devices.
 
 ### ship — flash, commit, push, CI, mail
 
 - [x] flash-com10 — `pio run -d firmware -t upload --upload-port COM10` exits 0; hello reports `fw 0.7.0`.
-- [ ] commit-push — focused commit on `main`; `gh run watch` reaches success.
-- [ ] operator-report — SES message id recorded in the execution log.
+- [x] commit-push — focused commit on `main`; `gh run watch` reaches success.
+- [x] operator-report — SES message id recorded in the execution log.
 
 ## Stop conditions (only these)
 
@@ -68,3 +68,8 @@ Every I2C sensor path in `C:\dev\cli-controller\firmware\src\main.cpp` is bounde
 - 2026-09-14: Cross-check build: `xcheck mux:70:0:tof block st=2 spad=212 sig=0 amb=0 sg=10 mm=0 | single st=4 spad=212 sig=0 amb=0 sg=10 mm=0` (raw status 4 maps to 2). Block decode verified; debug build replaced by the final build.
 - 2026-09-14: Final flash. 15 s capture: tof 20.5/20.5/20.5/20.4 Hz, accel 48.7 Hz, x -772 y -159 z -744 mg at rest.
 - 2026-09-14: Host: `go test ./...` passes after updating the LiveText expectation; `go build -ldflags="-H windowsgui"` OK.
+- 2026-09-14: Replayed the 15 s capture through `protocol.ParseDeviceLine` and `motion.Engine`: 1966 lines, 0 parse errors, 0 motion events (all tof `st 2`, accel at rest).
+- 2026-09-14: Installed host build to `C:\Users\Jeremy\AppData\Local\Programs\cli-controller\cli-controller.exe`; log `connected COM10`; tray shows `CLI Dial: connected (COM10)`; Sensors tab rows: `mux 0x70 ch 6  VL53L4CD 0x29  mux:70:6:tof  Detected  no target  st 2  sig 0  amb 0  sigma 10`, `mux 0x70 ch 3  ADXL345 0x53  mux:70:3:accel  Detected  x -768  y -163  z -741 mg`, plus ch 0, 1, 5 tof rows.
+- 2026-09-14: Commit `3847aa1` pushed to `main`; `gh run watch` started (background task bxu5z8wb1).
+- 2026-09-14: GitHub Actions run 34833974108 completed: firmware success, windows-app success.
+- 2026-09-14: Operator report sent by SES, MessageId `010001a09f8090ed-3a44575c-84c1-4778-81cc-421f9696259b-000000`.
