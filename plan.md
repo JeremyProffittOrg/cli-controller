@@ -87,3 +87,6 @@ Every I2C sensor path in `C:\dev\cli-controller\firmware\src\main.cpp` is bounde
 - 2026-09-14: Operator report sent by SES, MessageId `010001a09f8090ed-3a44575c-84c1-4778-81cc-421f9696259b-000000`.
 - 2026-09-14: Operator said "continue": start accel-fifo, scan-selftest, tof-calibration.
 - 2026-09-14: Firmware 0.7.1 (`pio run` SUCCESS, RAM 9.8 %, Flash 17.8 %) flashed to `COM10`. 16 s capture: accel 49.7 Hz via FIFO (796 frames, max gap 51 ms, none dropped), tof 20.4-20.6 Hz x 4, `sensor` lines carry `chip ebaa` / `chip e5`. `cal mux:70:0:tof 100` answered `ok:false n:0` after the 5 s timeout (no target in view); `cal nope:tof` answered `ok:false` at once. Host `go test ./...` passes; installed with `scripts/install.ps1`.
+- 2026-09-14: Settings > Sensors shows `id ebaa` / `id e5` and the `Calibrate mm` control. Pressed it for `mux:70:1:tof`: host log `calibrate mux:70:1:tof at 100 mm` then `dial cal mux:70:1:tof ok=false offset=0 avg=0 n=0`; dialog shows the failure note. Commit `3bb7798` pushed; CI run 34838690072 in progress.
+- 2026-09-14: GitHub Actions run 34838690072 completed: firmware success, windows-app success.
+- 2026-09-14: Run status #2 sent by SES, MessageId `010001a09fb4112f-739ea822-5abb-46bf-8c39-444294b472b3-000000`.
