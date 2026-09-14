@@ -100,3 +100,4 @@ Every I2C sensor path in `C:\dev\cli-controller\firmware\src\main.cpp` is bounde
 - 2026-09-14: Run status #2 sent by SES, MessageId `010001a09fb4112f-739ea822-5abb-46bf-8c39-444294b472b3-000000`.
 - 2026-09-14: Operator said continue again: start adopt-discovered and error-counters.
 - 2026-09-14: Firmware 0.7.2 flashed to `COM10` (RAM 10.0 %, Flash 17.8 %). 10 s capture: tof 20.4-20.5 Hz x 4, accel 51.8 Hz, `sensor` lines carry `err 0 init 0`. Host reinstalled, `connected COM10`. In the live Sensors tab, `Use discovered` reported `Controls now match the hardware: 3 added, 3 removed` and the list became ch 0 left, ch 1 right, ch 3 accel, ch 5 off, ch 6 off; aborted without saving so the operator config is unchanged.
+- 2026-09-14: GitHub Actions run 34840172347 success. Run status #3 sent by SES, MessageId `010001a09fc3a993-a7b60044-12af-40d7-bae8-d3184ed5bac1-000000`.
