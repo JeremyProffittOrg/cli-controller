@@ -3,7 +3,7 @@
 #include <cstring>
 #include <math.h>
 
-static const char *kFw = "0.6.1";
+static const char *kFw = "0.6.2";
 static const uint32_t kHostTimeoutMs = 3000;
 static const uint32_t kOverlayHoldMs = 2500;
 static const int kDetentPulses = 4;
@@ -53,6 +53,9 @@ static bool scanRequested = true;
 
 static m5::I2C_Class *bus = &M5.Ex_I2C;
 static bool exReady = false;
+static bool pinsLocked = false;
+static uint8_t i2cSda = 2;
+static uint8_t i2cScl = 1;
 
 static bool i2cProbe(uint8_t address) {
   if (bus == &M5.Ex_I2C && !exReady) {
@@ -273,15 +276,45 @@ static bool initTofSlot(int idx) {
   tofWr8(0x0008, 0x09);
   tofWr8(0x000B, 0x00);
   tofWr16(0x0024, 0x0500);
+  uint8_t zero4[4] = {0, 0, 0, 0};
+  tofWr(0x006C, zero4, 4);
   return tofWr8(0x0087, 0x21);
 }
 
+static bool busHasMuxOrSensor() {
+  for (uint8_t addr = 0x70; addr <= 0x77; ++addr) {
+    if (bus->scanID(addr, kI2CHz)) {
+      return true;
+    }
+  }
+  return bus->scanID(kTofAddr, kI2CHz) || bus->scanID(kAccelAddr, kI2CHz);
+}
+
+static bool tryPins(int sda, int scl) {
+  M5.Ex_I2C.release();
+  if (!M5.Ex_I2C.begin((i2c_port_t)0, sda, scl)) {
+    exReady = false;
+    return false;
+  }
+  bus = &M5.Ex_I2C;
+  exReady = true;
+  i2cSda = (uint8_t)sda;
+  i2cScl = (uint8_t)scl;
+  return busHasMuxOrSensor();
+}
+
 static void pickBus() {
-  if (exReady) {
+  if (pinsLocked) {
     return;
   }
-  exReady = M5.Ex_I2C.begin();
-  bus = &M5.Ex_I2C;
+  // Port B first: Grove yellow is G2, white is G1 on M5Dial.
+  if (tryPins(2, 1) || tryPins(1, 2) || tryPins(13, 15)) {
+    pinsLocked = true;
+    Serial.printf("{\"v\":1,\"t\":\"i2c\",\"sda\":%u,\"scl\":%u}\n", i2cSda, i2cScl);
+    return;
+  }
+  tryPins(2, 1);
+  Serial.printf("{\"v\":1,\"t\":\"i2c\",\"sda\":%u,\"scl\":%u}\n", i2cSda, i2cScl);
 }
 
 static void discoverMuxes() {
@@ -394,14 +427,14 @@ static void pollTof(uint32_t now) {
       setSlotOk(i, false);
       continue;
     }
-    if (!tofDataReady()) {
-      continue;
-    }
-    uint8_t rangeStatus = 0;
+    delay(2);
     uint16_t mm = 0;
-    if (!tofRd8(0x0089, &rangeStatus) || !tofRd16(0x0096, &mm) || !tofWr8(0x0086, 0x01)) {
+    if (!tofRd16(0x0096, &mm)) {
       sensorFailed(i);
       continue;
+    }
+    if (tofDataReady()) {
+      tofWr8(0x0086, 0x01);
     }
     slots[i].failures = 0;
     Serial.printf("{\"v\":1,\"t\":\"tof\",\"id\":\"%s\",\"mux\":%u,\"ch\":%u,\"mm\":%u}\n",
@@ -760,7 +793,6 @@ void setup() {
     delay(10);
   }
   M5Dial.Display.setRotation(0);
-  M5.Ex_I2C.begin();
   encPos = M5Dial.Encoder.read();
   sendHello();
   lastHostMs = 0;
