@@ -664,6 +664,9 @@ func hardwareLabel(s protocol.SensorStatus) string {
 	if s.Kind == "accel" {
 		kind = "ADXL345"
 	}
+	if s.Addr != 0 {
+		kind = fmt.Sprintf("%s 0x%02X", kind, s.Addr)
+	}
 	state := "Missing"
 	if s.OK {
 		state = "Detected"

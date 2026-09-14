@@ -307,6 +307,8 @@ func (a *App) handleMsg(m protocol.DeviceMsg) {
 		a.settings.SetInventory(a.inventory)
 	case "i2c":
 		a.settings.SetI2CPort(m.Port, m.Sda, m.Scl)
+	case "log":
+		a.log.Printf("dial: %s", m.Msg)
 	}
 }
 
@@ -316,6 +318,7 @@ func (a *App) upsertInventory(m protocol.DeviceMsg) {
 		Kind: m.Kind,
 		Mux:  m.Mux,
 		Ch:   m.Ch,
+		Addr: m.Addr,
 		OK:   m.OK,
 	}
 	if st.Kind == "" {
@@ -333,6 +336,10 @@ func (a *App) upsertInventory(m protocol.DeviceMsg) {
 			st.St = prev.St
 			st.Sig = prev.Sig
 			st.Amb = prev.Amb
+			st.Sg = prev.Sg
+			if st.Addr == 0 {
+				st.Addr = prev.Addr
+			}
 			st.X = prev.X
 			st.Y = prev.Y
 			st.Z = prev.Z
@@ -355,7 +362,7 @@ func (a *App) applySample(m protocol.DeviceMsg) {
 			kind = "tof"
 		}
 	}
-	st := protocol.SensorStatus{ID: id, Kind: kind, Mux: m.Mux, Ch: m.Ch, OK: true, Live: true, MM: m.MM, St: m.St, Sig: m.Sig, Amb: m.Amb, X: m.X, Y: m.Y, Z: m.Z}
+	st := protocol.SensorStatus{ID: id, Kind: kind, Mux: m.Mux, Ch: m.Ch, OK: true, Live: true, MM: m.MM, St: m.St, Sig: m.Sig, Amb: m.Amb, Sg: m.Sg, X: m.X, Y: m.Y, Z: m.Z}
 	for i := range a.inventory {
 		if a.inventory[i].ID == id {
 			cur := a.inventory[i]
@@ -369,6 +376,7 @@ func (a *App) applySample(m protocol.DeviceMsg) {
 				cur.St = m.St
 				cur.Sig = m.Sig
 				cur.Amb = m.Amb
+				cur.Sg = m.Sg
 			}
 			a.inventory[i] = cur
 			a.syncLegacyStatus()

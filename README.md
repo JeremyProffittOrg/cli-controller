@@ -16,7 +16,7 @@
 
 CLI Controller turns an M5Stack Dial into a physical control surface for command-line windows on Windows. Rotate the Dial to choose a CLI window. Press to focus it. Tap the screen to tile or stack all supported CLI windows. Optional knee-distance sensors and a desk-motion sensor add hands-free controls.
 
-Firmware 0.6.0 treats every motion sensor as optional. The Dial, display, encoder, button, and touch controls continue to work when no PCA9548 or sensor is connected. The firmware scans PCA9548 addresses `0x70`-`0x77`, all eight channels on each mux, and the root I2C bus.
+Firmware 0.7.0 treats every motion sensor as optional. The Dial, display, encoder, button, and touch controls continue to work when no PCA9548 or sensor is connected. The firmware scans PCA9548 addresses `0x70`-`0x77`, all eight channels on each mux, and the root I2C bus. Every VL53L4CD ranges continuously at 20 Hz on its own mux channel, the ADXL345 streams 50 Hz frames gated on its DATA_READY flag, and every I2C transaction is bounded so an unplugged sensor never stalls the Dial. Hot-plugged muxes and sensors appear within a few seconds without a host scan, a stuck bus is recovered with a clock-out sequence, and a sensor that stops answering is re-initialised automatically.
 
 ## M5Stack Dial hardware
 
@@ -96,7 +96,7 @@ flowchart LR
 | 0+ | ADXL345 accelerometer | `0x53` | any channel or root bus | Detects desk motion in four directions |
 | as needed | STEMMA QT/Qwiic or compatible I2C cables | - | - | Connects the mux and sensors |
 
-Use extra PCA9548 boards at `0x71`-`0x77` when you need more than eight isolated channels. A channel number plus mux address identifies a VL53L4CD; the firmware does not change the sensor's `0x29` address. Sensors may also sit on the root bus when no mux owns that address.
+Use extra PCA9548 boards at `0x71`-`0x77` when you need more than eight isolated channels. A channel number plus mux address identifies a VL53L4CD; the firmware does not change the sensor's `0x29` address. Sensors may also sit on the root bus. A root VL53L4CD is moved to `0x2A` at scan time so it never collides with a `0x29` behind a mux channel. An ADXL345 cannot change address in software, so a root ADXL345 at `0x53` hides `0x53` behind the muxes; strap SDO high to put the mux-side board at `0x1D` (its ID then ends in `accel1d`).
 
 ## Printable cases
 

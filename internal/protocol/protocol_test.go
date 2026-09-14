@@ -97,7 +97,7 @@ func TestSensorLiveText(t *testing.T) {
 		t.Fatalf("tof %s", tof.LiveText())
 	}
 	empty := SensorStatus{Kind: "tof", OK: true, Live: true, MM: 0, St: 2, Sig: 0, Amb: 12}
-	if empty.LiveText() != "no target  st 2  sig 0  amb 12" {
+	if empty.LiveText() != "no target  st 2  sig 0  amb 12  sigma 0" {
 		t.Fatalf("empty %s", empty.LiveText())
 	}
 	zeroValid := SensorStatus{Kind: "tof", OK: true, Live: true, MM: 0, St: 0}

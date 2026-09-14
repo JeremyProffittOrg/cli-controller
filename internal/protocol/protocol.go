@@ -24,6 +24,9 @@ type DeviceMsg struct {
 	St    int    `json:"st,omitempty"`
 	Sig   int    `json:"sig,omitempty"`
 	Amb   int    `json:"amb,omitempty"`
+	Sg    int    `json:"sg,omitempty"`
+	Addr  int    `json:"addr,omitempty"`
+	Msg   string `json:"msg,omitempty"`
 	X     int    `json:"x,omitempty"`
 	Y     int    `json:"y,omitempty"`
 	Z     int    `json:"z,omitempty"`
@@ -46,6 +49,8 @@ type SensorStatus struct {
 	St   int
 	Sig  int
 	Amb  int
+	Sg   int
+	Addr int
 	X    int
 	Y    int
 	Z    int
@@ -62,7 +67,7 @@ func (s SensorStatus) LiveText() string {
 		return fmt.Sprintf("x %+d  y %+d  z %+d mg", s.X, s.Y, s.Z)
 	}
 	if s.St != 0 {
-		return fmt.Sprintf("no target  st %d  sig %d  amb %d", s.St, s.Sig, s.Amb)
+		return fmt.Sprintf("no target  st %d  sig %d  amb %d  sigma %d", s.St, s.Sig, s.Amb, s.Sg)
 	}
 	return fmt.Sprintf("%d mm", s.MM)
 }

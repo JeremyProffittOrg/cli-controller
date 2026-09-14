@@ -28,6 +28,7 @@ type channelState struct {
 	raised       bool
 	releaseSince time.Time
 	connected    bool
+	lastAt       time.Time
 }
 
 type deskState struct {
@@ -47,6 +48,15 @@ type Engine struct {
 	armed      bool
 	deadline   time.Time
 }
+
+// baselineTau is the resting-distance tracking time constant in seconds. The
+// Dial streams each VL53L4CD at 20 Hz, so adaptation is set by wall-clock
+// time rather than sample count and does not change when more sensors share
+// the bus.
+const baselineTau = 6.0
+
+// baselineMaxAlpha caps one update after a long gap between samples.
+const baselineMaxAlpha = 0.1
 
 func New(cfg config.Config) *Engine { e := &Engine{}; e.Configure(cfg); return e }
 
@@ -93,6 +103,7 @@ func (e *Engine) Connected(id string, ok bool) []Event {
 		s.baseline = 0
 		s.raised = false
 		s.releaseSince = time.Time{}
+		s.lastAt = time.Time{}
 	}
 	return e.updateSides(time.Now())
 }
@@ -103,6 +114,8 @@ func (e *Engine) Distance(id string, mm int, now time.Time) []Event {
 	}
 	s := e.tofState(id)
 	s.connected = true
+	prevAt := s.lastAt
+	s.lastAt = now
 	s.samples = append(s.samples, mm)
 	if len(s.samples) > 3 {
 		s.samples = s.samples[len(s.samples)-3:]
@@ -137,7 +150,17 @@ func (e *Engine) Distance(id string, mm int, now time.Time) []Event {
 			s.releaseSince = time.Time{}
 		}
 	} else {
-		s.baseline += (float64(med) - s.baseline) * 0.02
+		alpha := baselineMaxAlpha
+		if !prevAt.IsZero() {
+			alpha = now.Sub(prevAt).Seconds() / baselineTau
+			if alpha > baselineMaxAlpha {
+				alpha = baselineMaxAlpha
+			}
+			if alpha < 0 {
+				alpha = 0
+			}
+		}
+		s.baseline += (float64(med) - s.baseline) * alpha
 	}
 	return e.updateSides(now)
 }
