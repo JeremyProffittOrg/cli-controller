@@ -57,8 +57,8 @@ func TestParseSensorMessages(t *testing.T) {
 	if err != nil || root.SensorID() != "root:accel" {
 		t.Fatalf("root %+v %v", root, err)
 	}
-	tof, err := ParseDeviceLine(`{"v":1,"t":"tof","id":"mux:70:3:tof","mux":112,"ch":3,"mm":421}`)
-	if err != nil || tof.Ch != 3 || tof.MM != 421 || tof.SensorID() != "mux:70:3:tof" {
+	tof, err := ParseDeviceLine(`{"v":1,"t":"tof","id":"mux:70:3:tof","mux":112,"ch":3,"mm":421,"st":0,"sig":180,"amb":4}`)
+	if err != nil || tof.Ch != 3 || tof.MM != 421 || tof.St != 0 || tof.Sig != 180 || tof.Amb != 4 || tof.SensorID() != "mux:70:3:tof" {
 		t.Fatalf("tof %+v %v", tof, err)
 	}
 	accel, err := ParseDeviceLine(`{"v":1,"t":"accel","ch":4,"x":12,"y":-410,"z":1002}`)
@@ -96,9 +96,13 @@ func TestSensorLiveText(t *testing.T) {
 	if tof.LiveText() != "142 mm" {
 		t.Fatalf("tof %s", tof.LiveText())
 	}
-	empty := SensorStatus{Kind: "tof", OK: true, Live: true, MM: 0}
-	if empty.LiveText() != "no target" {
+	empty := SensorStatus{Kind: "tof", OK: true, Live: true, MM: 0, St: 2, Sig: 0, Amb: 12}
+	if empty.LiveText() != "no target  st 2  sig 0  amb 12" {
 		t.Fatalf("empty %s", empty.LiveText())
+	}
+	zeroValid := SensorStatus{Kind: "tof", OK: true, Live: true, MM: 0, St: 0}
+	if zeroValid.LiveText() != "0 mm" {
+		t.Fatalf("zero %s", zeroValid.LiveText())
 	}
 	accel := SensorStatus{Kind: "accel", OK: true, Live: true, X: 12, Y: -410, Z: 1002}
 	if accel.LiveText() != "x +12  y -410  z +1002 mg" {

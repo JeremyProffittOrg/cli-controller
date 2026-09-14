@@ -21,6 +21,9 @@ type DeviceMsg struct {
 	Kind  string `json:"kind,omitempty"`
 	OK    bool   `json:"ok,omitempty"`
 	MM    int    `json:"mm,omitempty"`
+	St    int    `json:"st,omitempty"`
+	Sig   int    `json:"sig,omitempty"`
+	Amb   int    `json:"amb,omitempty"`
 	X     int    `json:"x,omitempty"`
 	Y     int    `json:"y,omitempty"`
 	Z     int    `json:"z,omitempty"`
@@ -40,6 +43,9 @@ type SensorStatus struct {
 	OK   bool
 	Live bool
 	MM   int
+	St   int
+	Sig  int
+	Amb  int
 	X    int
 	Y    int
 	Z    int
@@ -55,8 +61,8 @@ func (s SensorStatus) LiveText() string {
 	if s.Kind == "accel" {
 		return fmt.Sprintf("x %+d  y %+d  z %+d mg", s.X, s.Y, s.Z)
 	}
-	if s.MM == 0 {
-		return "no target"
+	if s.St != 0 {
+		return fmt.Sprintf("no target  st %d  sig %d  amb %d", s.St, s.Sig, s.Amb)
 	}
 	return fmt.Sprintf("%d mm", s.MM)
 }

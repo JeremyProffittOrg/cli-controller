@@ -5,7 +5,7 @@
 #include <cstring>
 #include <math.h>
 
-static const char *kFw = "0.6.5";
+static const char *kFw = "0.6.6";
 static const uint32_t kHostTimeoutMs = 3000;
 static const uint32_t kOverlayHoldMs = 2500;
 static const int kDetentPulses = 4;
@@ -54,6 +54,7 @@ static uint32_t lastAccelPollMs = 0;
 static uint32_t lastSensorScanMs = 0;
 static uint8_t nextInit = 0;
 static uint8_t nextTofPoll = 0;
+static uint8_t rangingIdx = 0xFF;
 static bool scanRequested = true;
 
 static bool exReady = false;
@@ -156,6 +157,9 @@ static void setSlotOk(int idx, bool ok) {
   s.ok = ok;
   if (!ok) {
     s.failures = 0;
+    if (rangingIdx == (uint8_t)idx) {
+      rangingIdx = 0xFF;
+    }
   }
   reportSlot((uint8_t)idx);
 }
@@ -208,12 +212,12 @@ static bool initTofSlot(int idx) {
   if (tofDev.InitSensor() != 0) {
     return false;
   }
-  if (tofDev.VL53L4CD_SetRangeTiming(200, 0) != 0) {
+  if (tofDev.VL53L4CD_SetRangeTiming(50, 0) != 0) {
     return false;
   }
   tofDev.VL53L4CD_SetSignalThreshold(50);
   tofDev.VL53L4CD_SetSigmaThreshold(120);
-  return tofDev.VL53L4CD_StartRanging() == 0;
+  return true;
 }
 
 static int countHits() {
@@ -303,6 +307,7 @@ static void probeBus(uint8_t mux, uint8_t ch) {
 }
 
 static void discoverSensors() {
+  rangingIdx = 0xFF;
   for (uint8_t i = 0; i < slotCount; ++i) {
     slots[i].seen = false;
   }
@@ -365,6 +370,23 @@ static void sensorFailed(int idx) {
   setSlotOk(idx, false);
 }
 
+static bool tofStop(uint8_t i) {
+  if (i >= slotCount) {
+    return true;
+  }
+  if (!muxSelect(slots[i].mux, slots[i].ch)) {
+    return false;
+  }
+  return tofDev.VL53L4CD_StopRanging() == 0;
+}
+
+static bool tofStart(uint8_t i) {
+  if (!muxSelect(slots[i].mux, slots[i].ch)) {
+    return false;
+  }
+  return tofDev.VL53L4CD_StartRanging() == 0;
+}
+
 static void pollTof(uint32_t now) {
   if (now - lastTofPollMs < 50 || slotCount == 0) {
     return;
@@ -376,28 +398,43 @@ static void pollTof(uint32_t now) {
     if (slots[i].kind != kKindTof || !slots[i].ok) {
       continue;
     }
-    if (!muxSelect(slots[i].mux, slots[i].ch)) {
+    if (rangingIdx != i) {
+      if (rangingIdx != 0xFF) {
+        tofStop(rangingIdx);
+        rangingIdx = 0xFF;
+      }
+      if (!tofStart(i)) {
+        sensorFailed(i);
+        return;
+      }
+      rangingIdx = i;
+    } else if (!muxSelect(slots[i].mux, slots[i].ch)) {
       setSlotOk(i, false);
       return;
     }
     uint8_t ready = 0;
     uint32_t t0 = millis();
-    while (millis() - t0 < 220) {
+    while (millis() - t0 < 80) {
       if (tofDev.VL53L4CD_CheckForDataReady(&ready) == 0 && ready) {
         break;
       }
       delay(5);
     }
+    if (!ready) {
+      return;
+    }
+    tofDev.VL53L4CD_ClearInterrupt();
     VL53L4CD_Result_t result;
     if (tofDev.VL53L4CD_GetResult(&result) != 0) {
       sensorFailed(i);
       return;
     }
-    tofDev.VL53L4CD_ClearInterrupt();
     slots[i].failures = 0;
-    Serial.printf("{\"v\":1,\"t\":\"tof\",\"id\":\"%s\",\"mux\":%u,\"ch\":%u,\"mm\":%u,\"st\":%u,\"sig\":%u}\n",
-                  slots[i].id, slots[i].mux, slots[i].ch, result.distance_mm, result.range_status,
-                  result.signal_rate_kcps);
+    uint16_t mm = result.range_status == 0 ? result.distance_mm : 0;
+    Serial.printf(
+        "{\"v\":1,\"t\":\"tof\",\"id\":\"%s\",\"mux\":%u,\"ch\":%u,\"mm\":%u,\"st\":%u,\"sig\":%u,\"amb\":%u,\"spad\":%u}\n",
+        slots[i].id, slots[i].mux, slots[i].ch, mm, result.range_status,
+        result.signal_per_spad_kcps, result.ambient_per_spad_kcps, result.number_of_spad);
     return;
   }
 }
