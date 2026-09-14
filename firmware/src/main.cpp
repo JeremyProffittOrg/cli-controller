@@ -1,9 +1,11 @@
 #include <M5Dial.h>
+#include <Wire.h>
+#include <vl53l4cd_class.h>
 #include <cstdio>
 #include <cstring>
 #include <math.h>
 
-static const char *kFw = "0.6.3";
+static const char *kFw = "0.6.4";
 static const uint32_t kHostTimeoutMs = 3000;
 static const uint32_t kOverlayHoldMs = 2500;
 static const int kDetentPulses = 4;
@@ -28,6 +30,8 @@ static int canvasDepth = 0;
 static const uint32_t kI2CHz = 400000;
 static const uint8_t kTofAddr = 0x29;
 static const uint8_t kAccelAddr = 0x53;
+static VL53L4CD tofDev(&Wire, -1);
+static bool tofBegun = false;
 static const uint8_t kMaxSlots = 64;
 static const uint8_t kKindTof = 0;
 static const uint8_t kKindAccel = 1;
@@ -49,27 +53,29 @@ static uint32_t lastTofPollMs = 0;
 static uint32_t lastAccelPollMs = 0;
 static uint32_t lastSensorScanMs = 0;
 static uint8_t nextInit = 0;
+static uint8_t nextTofPoll = 0;
 static bool scanRequested = true;
 
-static m5::I2C_Class *bus = &M5.Ex_I2C;
 static bool exReady = false;
 static uint8_t i2cSda = 2;
 static uint8_t i2cScl = 1;
 static char i2cPort = 'b';
 
 static bool i2cProbe(uint8_t address) {
-  if (bus == &M5.Ex_I2C && !exReady) {
+  if (!exReady) {
     return false;
   }
-  return bus->scanID(address, kI2CHz);
+  Wire.beginTransmission(address);
+  return Wire.endTransmission() == 0;
 }
 
 static bool i2cWriteRaw(uint8_t addr, const uint8_t *data, size_t n) {
-  if (!bus->start(addr, false, kI2CHz)) {
+  Wire.beginTransmission(addr);
+  if (n > 0 && Wire.write(data, n) != n) {
+    Wire.endTransmission();
     return false;
   }
-  bool ok = n == 0 || bus->write(data, n);
-  return bus->stop() && ok;
+  return Wire.endTransmission() == 0;
 }
 
 static const char *kindName(uint8_t kind) { return kind == kKindAccel ? "accel" : "tof"; }
@@ -158,14 +164,26 @@ static bool adxlWrite(uint8_t mux, uint8_t ch, uint8_t reg, uint8_t value) {
   if (!muxSelect(mux, ch)) {
     return false;
   }
-  return bus->writeRegister8(kAccelAddr, reg, value, kI2CHz);
+  uint8_t d[2] = {reg, value};
+  return i2cWriteRaw(kAccelAddr, d, 2);
 }
 
 static bool adxlRead(uint8_t mux, uint8_t ch, uint8_t reg, uint8_t *data, size_t count) {
   if (!muxSelect(mux, ch)) {
     return false;
   }
-  return bus->readRegister(kAccelAddr, reg, data, count, kI2CHz);
+  Wire.beginTransmission(kAccelAddr);
+  Wire.write(reg);
+  if (Wire.endTransmission(false) != 0) {
+    return false;
+  }
+  if (Wire.requestFrom((uint8_t)kAccelAddr, (uint8_t)count) != count) {
+    return false;
+  }
+  for (size_t i = 0; i < count; ++i) {
+    data[i] = (uint8_t)Wire.read();
+  }
+  return true;
 }
 
 static bool initAccelSlot(int idx) {
@@ -178,120 +196,37 @@ static bool initAccelSlot(int idx) {
          adxlWrite(s.mux, s.ch, 0x2D, 0x08);
 }
 
-static bool tofWr(uint16_t reg, const uint8_t *data, size_t n) {
-  uint8_t buf[18];
-  if (n + 2 > sizeof(buf)) {
-    return false;
-  }
-  buf[0] = (uint8_t)(reg >> 8);
-  buf[1] = (uint8_t)reg;
-  memcpy(buf + 2, data, n);
-  return i2cWriteRaw(kTofAddr, buf, n + 2);
-}
-
-static bool tofWr8(uint16_t reg, uint8_t v) { return tofWr(reg, &v, 1); }
-
-static bool tofWr16(uint16_t reg, uint16_t v) {
-  uint8_t d[2] = {(uint8_t)(v >> 8), (uint8_t)v};
-  return tofWr(reg, d, 2);
-}
-
-static bool tofRd(uint16_t reg, uint8_t *data, size_t n) {
-  uint8_t addr[2] = {(uint8_t)(reg >> 8), (uint8_t)reg};
-  if (!bus->start(kTofAddr, false, kI2CHz) || !bus->write(addr, 2)) {
-    bus->stop();
-    return false;
-  }
-  if (!bus->restart(kTofAddr, true, kI2CHz)) {
-    bus->stop();
-    return false;
-  }
-  bool ok = bus->read(data, n, true);
-  return bus->stop() && ok;
-}
-
-static bool tofRd8(uint16_t reg, uint8_t *v) { return tofRd(reg, v, 1); }
-
-static bool tofRd16(uint16_t reg, uint16_t *v) {
-  uint8_t d[2];
-  if (!tofRd(reg, d, 2)) {
-    return false;
-  }
-  *v = (uint16_t)((uint16_t)d[0] << 8 | d[1]);
-  return true;
-}
-
-static const uint8_t kTofDefaultConfig[] = {
-    0x12, 0x00, 0x00, 0x11, 0x02, 0x00, 0x02, 0x08, 0x00, 0x08, 0x10, 0x01, 0x01,
-    0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x20, 0x0b, 0x00, 0x00, 0x02, 0x14, 0x21, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00,
-    0x00, 0xc8, 0x00, 0x00, 0x38, 0xff, 0x01, 0x00, 0x08, 0x00, 0x00, 0x01, 0xcc,
-    0x07, 0x01, 0xf1, 0x05, 0x00, 0xa0, 0x00, 0x80, 0x08, 0x38, 0x00, 0x00, 0x00,
-    0x00, 0x0f, 0x89, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x07, 0x05,
-    0x06, 0x06, 0x00, 0x00, 0x02, 0xc7, 0xff, 0x9B, 0x00, 0x00, 0x00, 0x01, 0x00,
-    0x00};
-
-static bool tofDataReady() {
-  uint8_t mux = 0;
-  uint8_t status = 0;
-  if (!tofRd8(0x0030, &mux) || !tofRd8(0x0031, &status)) {
-    return false;
-  }
-  uint8_t pol = ((mux & 0x10) >> 4) ? 0 : 1;
-  return (status & 1) == pol;
-}
-
 static bool initTofSlot(int idx) {
   SensorSlot &s = slots[idx];
   if (!muxSelect(s.mux, s.ch) || !i2cProbe(kTofAddr)) {
     return false;
   }
-  uint8_t boot = 0;
-  for (int i = 0; i < 100; ++i) {
-    if (tofRd8(0x00E5, &boot) && boot == 0x03) {
-      break;
-    }
-    delay(10);
+  if (!tofBegun) {
+    tofDev.begin();
+    tofBegun = true;
   }
-  if (boot != 0x03) {
+  if (tofDev.InitSensor() != 0) {
     return false;
   }
-  uint16_t id = 0;
-  if (!tofRd16(0x010F, &id) || id != 0xEBAA) {
+  if (tofDev.VL53L4CD_SetRangeTiming(100, 0) != 0) {
     return false;
   }
-  for (uint8_t addr = 0x2D; addr <= 0x87; ++addr) {
-    if (!tofWr8(addr, kTofDefaultConfig[addr - 0x2D])) {
-      return false;
-    }
-  }
-  if (!tofWr8(0x0087, 0x40)) {
-    return false;
-  }
-  for (int i = 0; i < 100 && !tofDataReady(); ++i) {
-    delay(10);
-  }
-  tofWr8(0x0086, 0x01);
-  tofWr8(0x0087, 0x00);
-  tofWr8(0x0008, 0x09);
-  tofWr8(0x000B, 0x00);
-  tofWr16(0x0024, 0x0500);
-  uint8_t zero4[4] = {0, 0, 0, 0};
-  tofWr(0x006C, zero4, 4);
-  return tofWr8(0x0087, 0x21);
+  tofDev.VL53L4CD_SetSignalThreshold(200);
+  tofDev.VL53L4CD_SetSigmaThreshold(80);
+  return tofDev.VL53L4CD_StartRanging() == 0;
 }
 
 static int countHits() {
   int n = 0;
   for (uint8_t addr = 0x70; addr <= 0x77; ++addr) {
-    if (bus->scanID(addr, kI2CHz)) {
+    if (i2cProbe(addr)) {
       n++;
     }
   }
-  if (bus->scanID(kTofAddr, kI2CHz)) {
+  if (i2cProbe(kTofAddr)) {
     n++;
   }
-  if (bus->scanID(kAccelAddr, kI2CHz)) {
+  if (i2cProbe(kAccelAddr)) {
     n++;
   }
   return n;
@@ -299,11 +234,12 @@ static int countHits() {
 
 static bool tryPins(int sda, int scl) {
   M5.Ex_I2C.release();
-  if (!M5.Ex_I2C.begin((i2c_port_t)0, sda, scl)) {
+  Wire.end();
+  if (!Wire.begin(sda, scl, kI2CHz)) {
     exReady = false;
     return false;
   }
-  bus = &M5.Ex_I2C;
+  Wire.setTimeOut(50);
   exReady = true;
   i2cSda = (uint8_t)sda;
   i2cScl = (uint8_t)scl;
@@ -430,30 +366,32 @@ static void sensorFailed(int idx) {
 }
 
 static void pollTof(uint32_t now) {
-  if (now - lastTofPollMs < 50) {
+  if (now - lastTofPollMs < 50 || slotCount == 0) {
     return;
   }
   lastTofPollMs = now;
-  for (uint8_t i = 0; i < slotCount; ++i) {
+  for (uint8_t n = 0; n < slotCount; ++n) {
+    uint8_t i = nextTofPoll;
+    nextTofPoll = (uint8_t)((nextTofPoll + 1) % slotCount);
     if (slots[i].kind != kKindTof || !slots[i].ok) {
       continue;
     }
     if (!muxSelect(slots[i].mux, slots[i].ch)) {
       setSlotOk(i, false);
-      continue;
+      return;
     }
-    delay(2);
-    uint16_t mm = 0;
-    if (!tofRd16(0x0096, &mm)) {
+    delay(55);
+    VL53L4CD_Result_t result;
+    if (tofDev.VL53L4CD_GetResult(&result) != 0) {
       sensorFailed(i);
-      continue;
+      return;
     }
-    if (tofDataReady()) {
-      tofWr8(0x0086, 0x01);
-    }
+    tofDev.VL53L4CD_ClearInterrupt();
     slots[i].failures = 0;
-    Serial.printf("{\"v\":1,\"t\":\"tof\",\"id\":\"%s\",\"mux\":%u,\"ch\":%u,\"mm\":%u}\n",
-                  slots[i].id, slots[i].mux, slots[i].ch, mm);
+    Serial.printf("{\"v\":1,\"t\":\"tof\",\"id\":\"%s\",\"mux\":%u,\"ch\":%u,\"mm\":%u,\"st\":%u,\"spad\":%u}\n",
+                  slots[i].id, slots[i].mux, slots[i].ch, result.distance_mm, result.range_status,
+                  result.number_of_spad);
+    return;
   }
 }
 

@@ -55,6 +55,9 @@ func (s SensorStatus) LiveText() string {
 	if s.Kind == "accel" {
 		return fmt.Sprintf("x %+d  y %+d  z %+d mg", s.X, s.Y, s.Z)
 	}
+	if s.MM == 0 {
+		return "no target"
+	}
 	return fmt.Sprintf("%d mm", s.MM)
 }
 
