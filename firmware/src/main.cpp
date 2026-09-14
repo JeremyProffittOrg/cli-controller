@@ -5,7 +5,7 @@
 #include <cstring>
 #include <math.h>
 
-static const char *kFw = "0.7.1";
+static const char *kFw = "0.7.2";
 static const uint32_t kHostTimeoutMs = 3000;
 static const uint32_t kOverlayHoldMs = 2500;
 static const int kDetentPulses = 4;
@@ -86,6 +86,9 @@ struct SensorSlot {
   uint32_t calSum;
   uint16_t calTarget;
   uint32_t calStartMs;
+  uint16_t errors;    // failed transactions since boot
+  uint16_t reinits;   // successful inits after the first
+  bool everOk;
 };
 
 static Preferences prefs;
@@ -582,8 +585,8 @@ static void reportSlot(uint8_t i) {
   }
   SensorSlot &s = slots[i];
   Serial.printf(
-      "{\"v\":1,\"t\":\"sensor\",\"id\":\"%s\",\"mux\":%u,\"ch\":%u,\"kind\":\"%s\",\"addr\":%u,\"chip\":\"%x\",\"ok\":%s}\n",
-      s.id, s.mux, s.ch, kindName(s.kind), s.addr, s.chip, s.ok ? "true" : "false");
+      "{\"v\":1,\"t\":\"sensor\",\"id\":\"%s\",\"mux\":%u,\"ch\":%u,\"kind\":\"%s\",\"addr\":%u,\"chip\":\"%x\",\"ok\":%s,\"err\":%u,\"init\":%u}\n",
+      s.id, s.mux, s.ch, kindName(s.kind), s.addr, s.chip, s.ok ? "true" : "false", s.errors, s.reinits);
   s.reported = true;
 }
 
@@ -649,6 +652,9 @@ static void slotFailed(int idx, bool hard) {
   }
   noteBusError();
   SensorSlot &s = slots[idx];
+  if (s.errors < 0xFFFF) {
+    s.errors++;
+  }
   if (hard) {
     s.failures = kFailLimit;
   } else if (++s.failures < kFailLimit) {
@@ -934,6 +940,12 @@ static void initPending(uint32_t now) {
     }
     bool ok = slots[i].kind == kKindAccel ? initAccelSlot(i) : initTofSlot(i);
     slots[i].failures = 0;
+    if (ok) {
+      if (slots[i].everOk && slots[i].reinits < 0xFFFF) {
+        slots[i].reinits++;
+      }
+      slots[i].everOk = true;
+    }
     setSlotOk(i, ok);
     if (ok) {
       noteBusOk();

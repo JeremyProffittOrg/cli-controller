@@ -29,6 +29,8 @@ type DeviceMsg struct {
 	Chip   string `json:"chip,omitempty"`
 	Offset int    `json:"offset,omitempty"`
 	Avg    int    `json:"avg,omitempty"`
+	Err    int    `json:"err,omitempty"`
+	Init   int    `json:"init,omitempty"`
 	Msg    string `json:"msg,omitempty"`
 	X      int    `json:"x,omitempty"`
 	Y      int    `json:"y,omitempty"`
@@ -55,6 +57,8 @@ type SensorStatus struct {
 	Sg   int
 	Addr int
 	Chip string
+	Err  int
+	Init int
 	X    int
 	Y    int
 	Z    int

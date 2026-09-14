@@ -29,6 +29,7 @@ const (
 	idRemove   = 164
 	idCal      = 175
 	idCalMM    = 176
+	idAdopt    = 177
 )
 
 type Dialog struct {
@@ -128,6 +129,9 @@ func proc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 			return 0
 		case idCal:
 			inst.calibrateSelected()
+			return 0
+		case idAdopt:
+			inst.adoptDiscovered()
 			return 0
 		case idRemove:
 			inst.removeControl()
@@ -273,6 +277,7 @@ func (d *Dialog) build() {
 	d.controlList = child(4, win32.WS_EX_CLIENTEDGE, win32.LBS_NOTIFY|win32.LBS_HASSTRINGS|win32.LBS_NOINTEGRALHEIGHT|win32.WS_VSCROLL|win32.WS_TABSTOP, "LISTBOX", "", 48, 314, 600, 100, idControls)
 	child(4, 0, win32.BS_PUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Add control", 48, 420, 120, 26, idAdd)
 	child(4, 0, win32.BS_PUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Remove", 178, 420, 100, 26, idRemove)
+	child(4, 0, win32.BS_PUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Use discovered", 288, 420, 130, 26, idAdopt)
 	section(4, "03  SELECTED CONTROL", 456)
 	d.ctrlKindLabel = label(4, "Select a discovered sensor, then Add control.", 48, 484, 600)
 	d.ctrlLive = label(4, "Live  no signal", 48, 504, 600)
@@ -728,6 +733,9 @@ func hardwareLabel(s protocol.SensorStatus) string {
 		state = "Detected"
 	}
 	live := s.LiveText()
+	if s.Err > 0 || s.Init > 0 {
+		live = fmt.Sprintf("%s  err %d  reinit %d", live, s.Err, s.Init)
+	}
 	if strings.HasPrefix(s.ID, "root:") || s.Mux == 0 && strings.HasPrefix(s.ID, "root") {
 		return fmt.Sprintf("root bus  %s  %s  %s  %s", kind, s.ID, state, live)
 	}
@@ -808,6 +816,54 @@ func (d *Dialog) addControl() {
 	d.selectedControl = len(d.controls) - 1
 	d.refreshSensorLists()
 	d.loadControlFields()
+}
+
+// adoptDiscovered makes the control list match the hardware the Dial found:
+// controls whose id is not in the inventory are dropped and every discovered
+// device without a control gets one (VL53L4CD role off, ADXL345 with the
+// desk defaults). Nothing is saved until Commit.
+func (d *Dialog) adoptDiscovered() {
+	if len(d.inventory) == 0 {
+		d.calNote = "  Nothing discovered yet: press Scan now first."
+		d.updateLiveReadouts()
+		return
+	}
+	d.storeControlFields()
+	present := map[string]bool{}
+	for _, s := range d.inventory {
+		present[s.ID] = true
+	}
+	kept := d.controls[:0]
+	dropped := 0
+	for _, c := range d.controls {
+		if present[c.ID] {
+			kept = append(kept, c)
+		} else {
+			dropped++
+		}
+	}
+	d.controls = kept
+	have := map[string]bool{}
+	for _, c := range d.controls {
+		have[c.ID] = true
+	}
+	added := 0
+	for _, s := range d.inventory {
+		if have[s.ID] {
+			continue
+		}
+		d.controls = append(d.controls, config.NewControlFromStatus(s, d.cfg))
+		have[s.ID] = true
+		added++
+	}
+	d.selectedControl = -1
+	if len(d.controls) > 0 {
+		d.selectedControl = 0
+	}
+	d.calNote = fmt.Sprintf("  Controls now match the hardware: %d added, %d removed. Press Commit to keep this.", added, dropped)
+	d.refreshSensorLists()
+	d.loadControlFields()
+	d.updateLiveReadouts()
 }
 
 func (d *Dialog) removeControl() {

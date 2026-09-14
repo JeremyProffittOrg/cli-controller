@@ -324,6 +324,8 @@ func (a *App) upsertInventory(m protocol.DeviceMsg) {
 		Ch:   m.Ch,
 		Addr: m.Addr,
 		Chip: m.Chip,
+		Err:  m.Err,
+		Init: m.Init,
 		OK:   m.OK,
 	}
 	if st.Kind == "" {

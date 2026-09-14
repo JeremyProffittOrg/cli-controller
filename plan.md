@@ -61,6 +61,14 @@ Every I2C sensor path in `C:\dev\cli-controller\firmware\src\main.cpp` is bounde
 
 - [x] tof-calibration — host `{"t":"cal","id":..,"mm":N}` runs a 20-sample offset calibration, stores the offset in NVS, re-applies it at init, and answers `{"t":"cal",...}`; Settings gets a "Calibrate at N mm" button; `go test ./...` and `pio run -d firmware` exit 0; flashed and verified on `COM10`.
 
+### adopt-discovered — one click replaces stale default controls with the devices the Dial found
+
+- [x] adopt-discovered — Settings > Sensors "Use discovered" drops controls whose id is not in the inventory and adds one per discovered device; `go test ./...` exits 0; verified on the installed app.
+
+### error-counters — per-sensor transaction errors and re-inits visible in the Sensors tab
+
+- [x] error-counters — `sensor` lines carry `err` and `init`; Sensors tab shows them when non-zero; flashed and verified on `COM10`.
+
 ## Stop conditions (only these)
 
 - Flash fails two automatic attempts and one G0-bootloader attempt.
@@ -90,3 +98,5 @@ Every I2C sensor path in `C:\dev\cli-controller\firmware\src\main.cpp` is bounde
 - 2026-09-14: Settings > Sensors shows `id ebaa` / `id e5` and the `Calibrate mm` control. Pressed it for `mux:70:1:tof`: host log `calibrate mux:70:1:tof at 100 mm` then `dial cal mux:70:1:tof ok=false offset=0 avg=0 n=0`; dialog shows the failure note. Commit `3bb7798` pushed; CI run 34838690072 in progress.
 - 2026-09-14: GitHub Actions run 34838690072 completed: firmware success, windows-app success.
 - 2026-09-14: Run status #2 sent by SES, MessageId `010001a09fb4112f-739ea822-5abb-46bf-8c39-444294b472b3-000000`.
+- 2026-09-14: Operator said continue again: start adopt-discovered and error-counters.
+- 2026-09-14: Firmware 0.7.2 flashed to `COM10` (RAM 10.0 %, Flash 17.8 %). 10 s capture: tof 20.4-20.5 Hz x 4, accel 51.8 Hz, `sensor` lines carry `err 0 init 0`. Host reinstalled, `connected COM10`. In the live Sensors tab, `Use discovered` reported `Controls now match the hardware: 3 added, 3 removed` and the list became ch 0 left, ch 1 right, ch 3 accel, ch 5 off, ch 6 off; aborted without saving so the operator config is unchanged.
