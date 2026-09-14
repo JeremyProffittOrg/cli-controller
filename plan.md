@@ -49,6 +49,18 @@ Every I2C sensor path in `C:\dev\cli-controller\firmware\src\main.cpp` is bounde
 - [x] commit-push — focused commit on `main`; `gh run watch` reaches success.
 - [x] operator-report — SES message id recorded in the execution log.
 
+### accel-fifo — ADXL345 FIFO stream so a slow host tick never drops a frame
+
+- [x] accel-fifo — FIFO_CTL stream mode; every pass drains FIFO_STATUS entries; measured rate on `COM10` stays ~50 Hz with zero dropped frames over 15 s.
+
+### scan-selftest — sensor report carries the chip identity
+
+- [x] scan-selftest — `sensor` lines include `chip` (VL53L4CD `ebaa`, ADXL345 `e5`); host shows it in the Sensors tab.
+
+### tof-calibration — offset calibration from Settings, persisted on the Dial
+
+- [x] tof-calibration — host `{"t":"cal","id":..,"mm":N}` runs a 20-sample offset calibration, stores the offset in NVS, re-applies it at init, and answers `{"t":"cal",...}`; Settings gets a "Calibrate at N mm" button; `go test ./...` and `pio run -d firmware` exit 0; flashed and verified on `COM10`.
+
 ## Stop conditions (only these)
 
 - Flash fails two automatic attempts and one G0-bootloader attempt.
@@ -73,3 +85,5 @@ Every I2C sensor path in `C:\dev\cli-controller\firmware\src\main.cpp` is bounde
 - 2026-09-14: Commit `3847aa1` pushed to `main`; `gh run watch` started (background task bxu5z8wb1).
 - 2026-09-14: GitHub Actions run 34833974108 completed: firmware success, windows-app success.
 - 2026-09-14: Operator report sent by SES, MessageId `010001a09f8090ed-3a44575c-84c1-4778-81cc-421f9696259b-000000`.
+- 2026-09-14: Operator said "continue": start accel-fifo, scan-selftest, tof-calibration.
+- 2026-09-14: Firmware 0.7.1 (`pio run` SUCCESS, RAM 9.8 %, Flash 17.8 %) flashed to `COM10`. 16 s capture: accel 49.7 Hz via FIFO (796 frames, max gap 51 ms, none dropped), tof 20.4-20.6 Hz x 4, `sensor` lines carry `chip ebaa` / `chip e5`. `cal mux:70:0:tof 100` answered `ok:false n:0` after the 5 s timeout (no target in view); `cal nope:tof` answered `ok:false` at once. Host `go test ./...` passes; installed with `scripts/install.ps1`.

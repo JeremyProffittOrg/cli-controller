@@ -10,32 +10,35 @@ import (
 const MaxLine = 512
 
 type DeviceMsg struct {
-	V     int    `json:"v"`
-	T     string `json:"t"`
-	FW    string `json:"fw,omitempty"`
-	Dev   string `json:"dev,omitempty"`
-	D     int    `json:"d,omitempty"`
-	ID    string `json:"id,omitempty"`
-	Mux   int    `json:"mux,omitempty"`
-	Ch    int    `json:"ch,omitempty"`
-	Kind  string `json:"kind,omitempty"`
-	OK    bool   `json:"ok,omitempty"`
-	MM    int    `json:"mm,omitempty"`
-	St    int    `json:"st,omitempty"`
-	Sig   int    `json:"sig,omitempty"`
-	Amb   int    `json:"amb,omitempty"`
-	Sg    int    `json:"sg,omitempty"`
-	Addr  int    `json:"addr,omitempty"`
-	Msg   string `json:"msg,omitempty"`
-	X     int    `json:"x,omitempty"`
-	Y     int    `json:"y,omitempty"`
-	Z     int    `json:"z,omitempty"`
-	N     int    `json:"n,omitempty"`
-	Port  string `json:"port,omitempty"`
-	Sda   int    `json:"sda,omitempty"`
-	Scl   int    `json:"scl,omitempty"`
-	Raw   string `json:"-"`
-	Hello bool   `json:"-"`
+	V      int    `json:"v"`
+	T      string `json:"t"`
+	FW     string `json:"fw,omitempty"`
+	Dev    string `json:"dev,omitempty"`
+	D      int    `json:"d,omitempty"`
+	ID     string `json:"id,omitempty"`
+	Mux    int    `json:"mux,omitempty"`
+	Ch     int    `json:"ch,omitempty"`
+	Kind   string `json:"kind,omitempty"`
+	OK     bool   `json:"ok,omitempty"`
+	MM     int    `json:"mm,omitempty"`
+	St     int    `json:"st,omitempty"`
+	Sig    int    `json:"sig,omitempty"`
+	Amb    int    `json:"amb,omitempty"`
+	Sg     int    `json:"sg,omitempty"`
+	Addr   int    `json:"addr,omitempty"`
+	Chip   string `json:"chip,omitempty"`
+	Offset int    `json:"offset,omitempty"`
+	Avg    int    `json:"avg,omitempty"`
+	Msg    string `json:"msg,omitempty"`
+	X      int    `json:"x,omitempty"`
+	Y      int    `json:"y,omitempty"`
+	Z      int    `json:"z,omitempty"`
+	N      int    `json:"n,omitempty"`
+	Port   string `json:"port,omitempty"`
+	Sda    int    `json:"sda,omitempty"`
+	Scl    int    `json:"scl,omitempty"`
+	Raw    string `json:"-"`
+	Hello  bool   `json:"-"`
 }
 
 type SensorStatus struct {
@@ -51,6 +54,7 @@ type SensorStatus struct {
 	Amb  int
 	Sg   int
 	Addr int
+	Chip string
 	X    int
 	Y    int
 	Z    int
@@ -113,6 +117,8 @@ type HostMsg struct {
 	Brand string `json:"brand,omitempty"`
 	Title string `json:"title,omitempty"`
 	Rot   int    `json:"rot"`
+	ID    string `json:"id,omitempty"`
+	MM    int    `json:"mm,omitempty"`
 }
 
 func ParseDeviceLine(line string) (DeviceMsg, error) {
@@ -160,6 +166,12 @@ func HelloHost() ([]byte, error) {
 
 func Ping() ([]byte, error) {
 	return EncodeHost(HostMsg{V: 1, T: "ping"})
+}
+
+// Calibrate asks the Dial to run a VL53L4CD offset calibration against a
+// target at mm millimetres; mm 0 clears the stored offset.
+func Calibrate(id string, mm int) ([]byte, error) {
+	return EncodeHost(HostMsg{V: 1, T: "cal", ID: id, MM: mm})
 }
 
 func Scan() ([]byte, error) {

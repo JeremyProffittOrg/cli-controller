@@ -27,6 +27,8 @@ const (
 	idControls = 162
 	idAdd      = 163
 	idRemove   = 164
+	idCal      = 175
+	idCalMM    = 176
 )
 
 type Dialog struct {
@@ -38,7 +40,8 @@ type Dialog struct {
 	kneeRole, kneeThreshold, kneeStatus                       [4]windows.Handle
 	deskEnabled, deskStatus, deskOrientation, deskSensitivity windows.Handle
 	deskAction                                                [4]windows.Handle
-	foundList, controlList, foundStatus                       windows.Handle
+	foundList, controlList, foundStatus, calTarget            windows.Handle
+	calNote                                                   string
 	ctrlRole, ctrlThreshold, ctrlEnabled                      windows.Handle
 	ctrlOrientation, ctrlSensitivity                          windows.Handle
 	ctrlAction                                                [4]windows.Handle
@@ -56,6 +59,7 @@ type Dialog struct {
 	OnSave                                                    func(config.Config)
 	OnClose                                                   func()
 	OnScan                                                    func()
+	OnCalibrate                                               func(id string, mm int)
 	i2cPort                                                   string
 	i2cSda, i2cScl                                            int
 }
@@ -121,6 +125,9 @@ func proc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 			return 0
 		case idAdd:
 			inst.addControl()
+			return 0
+		case idCal:
+			inst.calibrateSelected()
 			return 0
 		case idRemove:
 			inst.removeControl()
@@ -258,7 +265,9 @@ func (d *Dialog) build() {
 	}
 	section(4, "01  DISCOVERED HARDWARE", 112)
 	d.foundList = child(4, win32.WS_EX_CLIENTEDGE, win32.LBS_NOTIFY|win32.LBS_HASSTRINGS|win32.LBS_NOINTEGRALHEIGHT|win32.WS_VSCROLL|win32.WS_TABSTOP, "LISTBOX", "", 48, 136, 600, 118, idFound)
-	d.foundStatus = label(4, "Mux 0x70-0x77 and the root I2C bus. Live readings update while this window is open.", 48, 258, 490)
+	d.foundStatus = label(4, "Mux 0x70-0x77 and the root I2C bus. Live readings update while this window is open.", 48, 258, 296)
+	d.calTarget = child(4, win32.WS_EX_CLIENTEDGE, win32.WS_TABSTOP, "EDIT", "100", 352, 254, 52, 26, idCalMM)
+	child(4, 0, win32.BS_PUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Calibrate mm", 410, 254, 128, 26, idCal)
 	child(4, 0, win32.BS_PUSHBUTTON|win32.WS_TABSTOP, "BUTTON", "Scan now", 548, 254, 100, 26, idScan)
 	section(4, "02  CONTROLS", 290)
 	d.controlList = child(4, win32.WS_EX_CLIENTEDGE, win32.LBS_NOTIFY|win32.LBS_HASSTRINGS|win32.LBS_NOINTEGRALHEIGHT|win32.WS_VSCROLL|win32.WS_TABSTOP, "LISTBOX", "", 48, 314, 600, 100, idControls)
@@ -559,9 +568,53 @@ func (d *Dialog) updateLiveReadouts() {
 		} else if d.i2cPort == "b" {
 			port = fmt.Sprintf("Port B (GPIO%d SDA, GPIO%d SCL)", d.i2cSda, d.i2cScl)
 		}
-		win32.SetWindowText(d.foundStatus, fmt.Sprintf("%s. %d device(s), %d connected, %d streaming.%s", port, len(d.inventory), ok, live, sel))
+		win32.SetWindowText(d.foundStatus, fmt.Sprintf("%s. %d device(s), %d connected, %d streaming.%s%s", port, len(d.inventory), ok, live, sel, d.calNote))
 	}
 }
+
+// calibrateSelected sends an offset calibration for the highlighted
+// discovered VL53L4CD using the target distance typed next to the button.
+func (d *Dialog) calibrateSelected() {
+	idx := win32.ListGet(d.foundList)
+	if idx < 0 || idx >= len(d.inventory) {
+		d.calNote = "  Select a VL53L4CD in the list first."
+		d.updateLiveReadouts()
+		return
+	}
+	s := d.inventory[idx]
+	if s.Kind != "tof" {
+		d.calNote = "  Calibration applies to VL53L4CD sensors only."
+		d.updateLiveReadouts()
+		return
+	}
+	mm := parseInt(d.calTarget, 100)
+	if mm < 0 || mm > 1300 {
+		d.calNote = "  Target must be 0-1300 mm (0 clears the offset)."
+		d.updateLiveReadouts()
+		return
+	}
+	if d.OnCalibrate == nil {
+		return
+	}
+	if mm == 0 {
+		d.calNote = fmt.Sprintf("  Clearing offset for %s.", s.ID)
+	} else {
+		d.calNote = fmt.Sprintf("  Calibrating %s at %d mm, hold the target still.", s.ID, mm)
+	}
+	d.updateLiveReadouts()
+	d.OnCalibrate(s.ID, mm)
+}
+
+// SetCalResult shows the Dial's calibration answer under the device list.
+func (d *Dialog) SetCalResult(id string, ok bool, offset, avg, n int) {
+	if ok {
+		d.calNote = fmt.Sprintf("  %s offset %d mm stored (average %d mm over %d samples).", id, offset, avg, n)
+	} else {
+		d.calNote = fmt.Sprintf("  %s calibration failed: %d valid samples (average %d mm). Keep a flat target in view.", id, n, avg)
+	}
+	d.updateLiveReadouts()
+}
+
 func (d *Dialog) hide() {
 	win32.ShowWindow(d.hwnd, win32.SW_HIDE)
 	if d.OnClose != nil {
@@ -666,6 +719,9 @@ func hardwareLabel(s protocol.SensorStatus) string {
 	}
 	if s.Addr != 0 {
 		kind = fmt.Sprintf("%s 0x%02X", kind, s.Addr)
+	}
+	if s.Chip != "" {
+		kind = fmt.Sprintf("%s id %s", kind, s.Chip)
 	}
 	state := "Missing"
 	if s.OK {

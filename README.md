@@ -16,7 +16,7 @@
 
 CLI Controller turns an M5Stack Dial into a physical control surface for command-line windows on Windows. Rotate the Dial to choose a CLI window. Press to focus it. Tap the screen to tile or stack all supported CLI windows. Optional knee-distance sensors and a desk-motion sensor add hands-free controls.
 
-Firmware 0.7.0 treats every motion sensor as optional. The Dial, display, encoder, button, and touch controls continue to work when no PCA9548 or sensor is connected. The firmware scans PCA9548 addresses `0x70`-`0x77`, all eight channels on each mux, and the root I2C bus. Every VL53L4CD ranges continuously at 20 Hz on its own mux channel, the ADXL345 streams 50 Hz frames gated on its DATA_READY flag, and every I2C transaction is bounded so an unplugged sensor never stalls the Dial. Hot-plugged muxes and sensors appear within a few seconds without a host scan, a stuck bus is recovered with a clock-out sequence, and a sensor that stops answering is re-initialised automatically.
+Firmware 0.7.0 treats every motion sensor as optional. The Dial, display, encoder, button, and touch controls continue to work when no PCA9548 or sensor is connected. The firmware scans PCA9548 addresses `0x70`-`0x77`, all eight channels on each mux, and the root I2C bus. Every VL53L4CD ranges continuously at 20 Hz on its own mux channel, the ADXL345 streams 50 Hz frames through its 32-deep FIFO so none are lost, and every I2C transaction is bounded so an unplugged sensor never stalls the Dial. Hot-plugged muxes and sensors appear within a few seconds without a host scan, a stuck bus is recovered with a clock-out sequence, and a sensor that stops answering is re-initialised automatically.
 
 ## M5Stack Dial hardware
 
@@ -339,7 +339,7 @@ Enable or disable the default ADXL345 desk motion control, set orientation and s
 
 ### Sensors
 
-The Sensors tab lists every VL53L4CD and ADXL345 the Dial found on PCA9548 muxes `0x70`-`0x77` and on the root I2C bus. Press `Scan now`, select a device, and press `Add control`. Each row and the selected-control panel show the live millimetre or milli-g reading so you can tune thresholds and sensitivity against the real signal. Distance controls get a left/right/off role and a millimetre threshold. Accelerometer controls get enable, orientation, sensitivity, and direction actions. You can add as many controls as you have sensors.
+The Sensors tab lists every VL53L4CD and ADXL345 the Dial found on PCA9548 muxes `0x70`-`0x77` and on the root I2C bus. Press `Scan now`, select a device, and press `Add control`. Each row and the selected-control panel show the live millimetre or milli-g reading so you can tune thresholds and sensitivity against the real signal. Each discovered row also shows the chip identity the Dial read from the part (`ebaa` for a VL53L4CD, `e5` for an ADXL345). Select a VL53L4CD, type the distance to a flat target in the box next to `Calibrate mm`, and press it: the Dial averages 20 valid readings, stores the offset in its flash, re-applies it on every boot, and reports the result under the list. Enter `0` to clear a stored offset. Distance controls get a left/right/off role and a millimetre threshold. Accelerometer controls get enable, orientation, sensitivity, and direction actions. You can add as many controls as you have sensors.
 
 ![Sensors settings tab](docs/images/settings-sensors.png)
 

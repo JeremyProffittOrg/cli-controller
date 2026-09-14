@@ -146,6 +146,7 @@ func Run() error {
 	a.settings = dlg
 	dlg.OnSave = a.saveSettings
 	dlg.OnScan = a.requestScan
+	dlg.OnCalibrate = a.requestCalibrate
 	a.restartSerial()
 	win32.SetTimer(h, 1, 125)
 	win32.SetTimer(h, 2, 1000)
@@ -309,6 +310,9 @@ func (a *App) handleMsg(m protocol.DeviceMsg) {
 		a.settings.SetI2CPort(m.Port, m.Sda, m.Scl)
 	case "log":
 		a.log.Printf("dial: %s", m.Msg)
+	case "cal":
+		a.log.Printf("dial cal %s ok=%v offset=%d avg=%d n=%d", m.SensorID(), m.OK, m.Offset, m.Avg, m.N)
+		a.settings.SetCalResult(m.SensorID(), m.OK, m.Offset, m.Avg, m.N)
 	}
 }
 
@@ -319,6 +323,7 @@ func (a *App) upsertInventory(m protocol.DeviceMsg) {
 		Mux:  m.Mux,
 		Ch:   m.Ch,
 		Addr: m.Addr,
+		Chip: m.Chip,
 		OK:   m.OK,
 	}
 	if st.Kind == "" {
@@ -339,6 +344,9 @@ func (a *App) upsertInventory(m protocol.DeviceMsg) {
 			st.Sg = prev.Sg
 			if st.Addr == 0 {
 				st.Addr = prev.Addr
+			}
+			if st.Chip == "" {
+				st.Chip = prev.Chip
 			}
 			st.X = prev.X
 			st.Y = prev.Y
@@ -402,6 +410,18 @@ func (a *App) syncLegacyStatus() {
 		}
 	}
 	a.sensorOK = status
+}
+
+func (a *App) requestCalibrate(id string, mm int) {
+	if a.ser == nil {
+		return
+	}
+	b, err := protocol.Calibrate(id, mm)
+	if err != nil {
+		return
+	}
+	a.log.Printf("calibrate %s at %d mm", id, mm)
+	_ = a.ser.Send(b)
 }
 
 func (a *App) requestScan() {

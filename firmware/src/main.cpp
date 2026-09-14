@@ -1,10 +1,11 @@
 #include <M5Dial.h>
 #include <Wire.h>
+#include <Preferences.h>
 #include <cstdio>
 #include <cstring>
 #include <math.h>
 
-static const char *kFw = "0.7.0";
+static const char *kFw = "0.7.1";
 static const uint32_t kHostTimeoutMs = 3000;
 static const uint32_t kOverlayHoldMs = 2500;
 static const int kDetentPulses = 4;
@@ -78,7 +79,18 @@ struct SensorSlot {
   uint8_t failures;
   uint32_t lastDataMs;
   uint32_t nextPollMs;
+  uint16_t chip;      // model id: VL53L4CD 0xEBAA, ADXL345 0xE5
+  int16_t offsetMm;   // VL53L4CD range offset applied at init (NVS "tofcal")
+  bool calActive;
+  uint8_t calCount;
+  uint32_t calSum;
+  uint16_t calTarget;
+  uint32_t calStartMs;
 };
+
+static Preferences prefs;
+static const uint8_t kCalSamples = 20;
+static const uint32_t kCalTimeoutMs = 5000;
 
 static SensorSlot slots[kMaxSlots];
 static uint8_t slotCount = 0;
@@ -446,9 +458,14 @@ static bool tofReadResult(uint8_t a, TofResult *r) {
   return true;
 }
 
+static bool tofSetOffset(uint8_t a, int16_t offsetMm) {
+  return tofWr16(a, 0x001E, (uint16_t)(offsetMm * 4)) && tofWr16(a, 0x0020, 0) &&
+         tofWr16(a, 0x0022, 0);
+}
+
 // Full ST SensorInit sequence with bounded waits, then our range timing and
 // thresholds. Returns false on any failed transaction or timeout.
-static bool tofInitDevice(uint8_t a, uint8_t *intPol) {
+static bool tofInitDevice(uint8_t a, uint8_t *intPol, int16_t offsetMm) {
   if (!tofModelOk(a)) {
     return false;
   }
@@ -493,7 +510,7 @@ static bool tofInitDevice(uint8_t a, uint8_t *intPol) {
       !tofWr16(a, kTofRegSigmaThresh, (uint16_t)(kTofSigmaMm << 2))) {
     return false;
   }
-  return true;
+  return tofSetOffset(a, offsetMm);
 }
 
 // Move a VL53L4CD to a new 7-bit address (volatile until the sensor loses
@@ -524,7 +541,7 @@ static bool accelInitDevice(uint8_t a) {
       !accelWr(a, 0x31, kAccelFormat) ||  // DATA_FORMAT: full resolution, +/-16 g
       !accelWr(a, 0x2C, kAccelRate) ||    // BW_RATE
       !accelWr(a, 0x2E, 0x00) ||          // INT_ENABLE: none
-      !accelWr(a, 0x38, 0x00) ||          // FIFO_CTL: bypass
+      !accelWr(a, 0x38, 0x80) ||          // FIFO_CTL: stream mode, 32 deep
       !accelWr(a, 0x1E, 0x00) || !accelWr(a, 0x1F, 0x00) || !accelWr(a, 0x20, 0x00) ||
       !accelWr(a, 0x2D, 0x08)) {          // POWER_CTL: measure
     return false;
@@ -565,8 +582,8 @@ static void reportSlot(uint8_t i) {
   }
   SensorSlot &s = slots[i];
   Serial.printf(
-      "{\"v\":1,\"t\":\"sensor\",\"id\":\"%s\",\"mux\":%u,\"ch\":%u,\"kind\":\"%s\",\"addr\":%u,\"ok\":%s}\n",
-      s.id, s.mux, s.ch, kindName(s.kind), s.addr, s.ok ? "true" : "false");
+      "{\"v\":1,\"t\":\"sensor\",\"id\":\"%s\",\"mux\":%u,\"ch\":%u,\"kind\":\"%s\",\"addr\":%u,\"chip\":\"%x\",\"ok\":%s}\n",
+      s.id, s.mux, s.ch, kindName(s.kind), s.addr, s.chip, s.ok ? "true" : "false");
   s.reported = true;
 }
 
@@ -580,6 +597,7 @@ static void setSlotOk(int idx, bool ok) {
   if (!ok) {
     s.failures = 0;
     s.ranging = false;
+    s.calActive = false;
   }
   if (changed) {
     reportSlot((uint8_t)idx);
@@ -610,6 +628,18 @@ static int ensureSlot(uint8_t mux, uint8_t ch, uint8_t kind, uint8_t addr) {
   s.kind = kind;
   s.addr = addr;
   s.seen = true;
+  if (kind == kKindTof) {
+    uint16_t id16 = 0;
+    if (tofRd16(addr, kTofRegModelId, &id16)) {
+      s.chip = id16;
+    }
+    s.offsetMm = (int16_t)prefs.getShort(s.id, 0);
+  } else {
+    uint8_t id8 = 0;
+    if (accelRd(addr, 0x00, &id8, 1)) {
+      s.chip = id8;
+    }
+  }
   return idx;
 }
 
@@ -864,7 +894,7 @@ static bool initTofSlot(int idx) {
   if (!muxSelect(s.mux, s.ch) || !i2cProbe(s.addr)) {
     return false;
   }
-  if (!tofInitDevice(s.addr, &s.intPol)) {
+  if (!tofInitDevice(s.addr, &s.intPol, s.offsetMm)) {
     return false;
   }
   if (!tofStartContinuous(s.addr)) {
@@ -932,6 +962,8 @@ static void scanSensors(uint32_t now) {
   initPending(now);
 }
 
+static void calSample(SensorSlot &s, const TofResult &r, uint32_t now);
+
 static void pollTof(uint32_t now) {
   for (uint8_t i = 0; i < slotCount; ++i) {
     SensorSlot &s = slots[i];
@@ -974,6 +1006,7 @@ static void pollTof(uint32_t now) {
       s.dropFirst = false;
       continue;
     }
+    calSample(s, r, now);
     uint16_t mm = r.status == 0 ? r.mm : 0;
     Serial.printf(
         "{\"v\":1,\"t\":\"tof\",\"id\":\"%s\",\"mux\":%u,\"ch\":%u,\"mm\":%u,\"st\":%u,\"sig\":%u,\"amb\":%u,\"spad\":%u,\"sg\":%u}\n",
@@ -983,8 +1016,10 @@ static void pollTof(uint32_t now) {
 
 static int accelMg(int16_t raw) { return (int)raw * 39 / 10; }
 
-// Polled every loop pass: DATA_READY gating means a pass with no new frame
-// costs one 8-byte read, and a 50 Hz frame is never overwritten unread.
+// Polled every loop pass. FIFO_CTL and FIFO_STATUS come back in one read:
+// FIFO_CTL proves the part still holds our configuration (a brown-out resets
+// it) and FIFO_STATUS says how many 50 Hz frames wait in the 32-deep stream
+// FIFO, so a slow host tick never loses a frame.
 static void pollAccel(uint32_t now) {
   for (uint8_t i = 0; i < slotCount; ++i) {
     SensorSlot &s = slots[i];
@@ -995,33 +1030,127 @@ static void pollAccel(uint32_t now) {
       slotFailed(i, false);
       continue;
     }
-    // INT_SOURCE, DATA_FORMAT, DATAX0..DATAZ1 in one burst: the format byte
-    // proves the part still holds our configuration (a brown-out resets it),
-    // and DATA_READY gates the frame so the host never sees a duplicate.
-    uint8_t b[8];
-    if (!accelRd(s.addr, 0x30, b, sizeof(b))) {
+    uint8_t st[2];
+    if (!accelRd(s.addr, 0x38, st, sizeof(st))) {
       slotFailed(i, false);
       continue;
     }
-    if (b[1] != kAccelFormat) {
+    if (st[0] != 0x80) {
       slotFailed(i, true);
       continue;
     }
-    if ((b[0] & 0x80) == 0) {
+    uint8_t n = st[1] & 0x3F;
+    if (n == 0) {
       if (now - s.lastDataMs > kStallMs) {
         slotFailed(i, true);
       }
       continue;
     }
-    s.failures = 0;
-    s.lastDataMs = now;
-    noteBusOk();
-    int16_t rawX = (int16_t)((uint16_t)b[3] << 8 | b[2]);
-    int16_t rawY = (int16_t)((uint16_t)b[5] << 8 | b[4]);
-    int16_t rawZ = (int16_t)((uint16_t)b[7] << 8 | b[6]);
-    Serial.printf(
-        "{\"v\":1,\"t\":\"accel\",\"id\":\"%s\",\"mux\":%u,\"ch\":%u,\"x\":%d,\"y\":%d,\"z\":%d}\n",
-        s.id, s.mux, s.ch, accelMg(rawX), accelMg(rawY), accelMg(rawZ));
+    if (n > 32) {
+      n = 32;
+    }
+    for (uint8_t k = 0; k < n; ++k) {
+      uint8_t b[6];
+      if (!accelRd(s.addr, 0x32, b, sizeof(b))) {
+        slotFailed(i, false);
+        break;
+      }
+      s.failures = 0;
+      s.lastDataMs = now;
+      noteBusOk();
+      int16_t rawX = (int16_t)((uint16_t)b[1] << 8 | b[0]);
+      int16_t rawY = (int16_t)((uint16_t)b[3] << 8 | b[2]);
+      int16_t rawZ = (int16_t)((uint16_t)b[5] << 8 | b[4]);
+      Serial.printf(
+          "{\"v\":1,\"t\":\"accel\",\"id\":\"%s\",\"mux\":%u,\"ch\":%u,\"x\":%d,\"y\":%d,\"z\":%d}\n",
+          s.id, s.mux, s.ch, accelMg(rawX), accelMg(rawY), accelMg(rawZ));
+    }
+  }
+}
+
+// ---- offset calibration ---------------------------------------------------
+
+static void reportCal(SensorSlot &s, bool ok, int avg, uint8_t n) {
+  Serial.printf("{\"v\":1,\"t\":\"cal\",\"id\":\"%s\",\"ok\":%s,\"offset\":%d,\"avg\":%d,\"n\":%u}\n",
+                s.id, ok ? "true" : "false", (int)s.offsetMm, avg, n);
+}
+
+// Stop ranging, write the offset, restart. The next result is discarded.
+static bool tofApplyOffset(SensorSlot &s) {
+  if (!muxSelect(s.mux, s.ch) || !tofStopRanging(s.addr) || !tofSetOffset(s.addr, s.offsetMm) ||
+      !tofStartContinuous(s.addr)) {
+    return false;
+  }
+  s.dropFirst = true;
+  s.lastDataMs = millis();
+  s.nextPollMs = s.lastDataMs + kTofBudgetMs;
+  return true;
+}
+
+// Host request: {"t":"cal","id":"mux:70:0:tof","mm":100}. mm 0 clears the
+// stored offset. Otherwise the offset is zeroed, kCalSamples valid ranges are
+// averaged by pollTof, and offset = target - average is applied and stored.
+static void startCalibration(const String &id, int targetMm) {
+  for (uint8_t i = 0; i < slotCount; ++i) {
+    SensorSlot &s = slots[i];
+    if (s.kind != kKindTof || strcmp(s.id, id.c_str()) != 0) {
+      continue;
+    }
+    if (targetMm <= 0) {
+      s.calActive = false;
+      s.offsetMm = 0;
+      prefs.remove(s.id);
+      bool ok = s.ok && tofApplyOffset(s);
+      reportCal(s, ok, 0, 0);
+      return;
+    }
+    if (!s.ok || !s.ranging) {
+      reportCal(s, false, 0, 0);
+      return;
+    }
+    int16_t keep = s.offsetMm;
+    s.offsetMm = 0;
+    if (!tofApplyOffset(s)) {
+      s.offsetMm = keep;
+      slotFailed(i, true);
+      reportCal(s, false, 0, 0);
+      return;
+    }
+    s.calActive = true;
+    s.calCount = 0;
+    s.calSum = 0;
+    s.calTarget = (uint16_t)targetMm;
+    s.calStartMs = millis();
+    return;
+  }
+  Serial.printf("{\"v\":1,\"t\":\"cal\",\"id\":\"%s\",\"ok\":false,\"offset\":0,\"avg\":0,\"n\":0}\n", id.c_str());
+}
+
+static void calSample(SensorSlot &s, const TofResult &r, uint32_t now) {
+  if (!s.calActive) {
+    return;
+  }
+  if (r.status == 0) {
+    s.calSum += r.mm;
+    s.calCount++;
+  }
+  if (s.calCount >= kCalSamples) {
+    int avg = (int)(s.calSum / s.calCount);
+    s.calActive = false;
+    s.offsetMm = (int16_t)((int)s.calTarget - avg);
+    bool ok = tofApplyOffset(s);
+    if (ok) {
+      prefs.putShort(s.id, s.offsetMm);
+    }
+    reportCal(s, ok, avg, s.calCount);
+    return;
+  }
+  if (now - s.calStartMs > kCalTimeoutMs) {
+    s.calActive = false;
+    int avg = s.calCount ? (int)(s.calSum / s.calCount) : 0;
+    s.offsetMm = (int16_t)prefs.getShort(s.id, 0);
+    tofApplyOffset(s);
+    reportCal(s, false, avg, s.calCount);
   }
 }
 
@@ -1320,6 +1449,9 @@ static void handleHostLine(const String &line) {
   if (jsonHasType(s, "scan")) {
     scanRequested = true;
   }
+  if (jsonHasType(s, "cal")) {
+    startCalibration(jsonString(s, "id"), jsonInt(s, "mm", 0));
+  }
   if (!wasLink) {
     dirty = true;
     scanRequested = true;
@@ -1348,6 +1480,7 @@ void setup() {
   M5Dial.begin(cfg, true, false);
   Serial.begin(115200);
   Serial.setTxTimeoutMs(5);
+  prefs.begin("tofcal", false);
   unsigned long t0 = millis();
   while (!Serial && millis() - t0 < 2000) {
     delay(10);
