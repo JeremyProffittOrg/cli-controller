@@ -43,26 +43,30 @@ type Dialog struct {
 	deskAction                                                [4]windows.Handle
 	foundList, controlList, foundStatus, calTarget            windows.Handle
 	calNote                                                   string
-	ctrlRole, ctrlThreshold, ctrlEnabled                      windows.Handle
-	ctrlOrientation, ctrlSensitivity                          windows.Handle
-	ctrlAction                                                [4]windows.Handle
-	ctrlKindLabel, ctrlLive, deskLive                         windows.Handle
-	ctrlRoleLabel, ctrlThreshLabel, ctrlOrientLabel           windows.Handle
-	ctrlSensLabel                                             windows.Handle
-	ctrlDirLabel                                              [4]windows.Handle
-	ports                                                     []serial.PortInfo
-	cfg                                                       config.Config
-	sensorOK                                                  [5]bool
-	inventory                                                 []protocol.SensorStatus
-	controls                                                  []config.SensorControl
-	selectedControl                                           int
-	font, fontB, fontTech, bg, panel                          windows.Handle
-	OnSave                                                    func(config.Config)
-	OnClose                                                   func()
-	OnScan                                                    func()
-	OnCalibrate                                               func(id string, mm int)
-	i2cPort                                                   string
-	i2cSda, i2cScl                                            int
+	// textCache remembers the last text set on each control so live updates
+	// only repaint controls whose text changed.
+	textCache                                       map[windows.Handle]string
+	foundLabels                                     []string
+	ctrlRole, ctrlThreshold, ctrlEnabled            windows.Handle
+	ctrlOrientation, ctrlSensitivity                windows.Handle
+	ctrlAction                                      [4]windows.Handle
+	ctrlKindLabel, ctrlLive, deskLive               windows.Handle
+	ctrlRoleLabel, ctrlThreshLabel, ctrlOrientLabel windows.Handle
+	ctrlSensLabel                                   windows.Handle
+	ctrlDirLabel                                    [4]windows.Handle
+	ports                                           []serial.PortInfo
+	cfg                                             config.Config
+	sensorOK                                        [5]bool
+	inventory                                       []protocol.SensorStatus
+	controls                                        []config.SensorControl
+	selectedControl                                 int
+	font, fontB, fontTech, bg, panel                windows.Handle
+	OnSave                                          func(config.Config)
+	OnClose                                         func()
+	OnScan                                          func()
+	OnCalibrate                                     func(id string, mm int)
+	i2cPort                                         string
+	i2cSda, i2cScl                                  int
 }
 
 var inst *Dialog
@@ -517,9 +521,33 @@ func (d *Dialog) patchFoundList() {
 	if len(d.inventory) == 0 || win32.ListCount(d.foundList) != len(d.inventory) {
 		return
 	}
-	for i, s := range d.inventory {
-		win32.ListSetText(d.foundList, i, hardwareLabel(s))
+	if len(d.foundLabels) != len(d.inventory) {
+		d.foundLabels = make([]string, len(d.inventory))
 	}
+	for i, s := range d.inventory {
+		label := hardwareLabel(s)
+		if d.foundLabels[i] == label {
+			continue
+		}
+		d.foundLabels[i] = label
+		win32.ListSetText(d.foundList, i, label)
+	}
+}
+
+// setText writes a control's text only when it differs from the last value
+// written, so a 100 Hz sensor stream does not turn into 100 Hz of repaints.
+func (d *Dialog) setText(h windows.Handle, s string) {
+	if h == 0 {
+		return
+	}
+	if d.textCache == nil {
+		d.textCache = map[windows.Handle]string{}
+	}
+	if prev, ok := d.textCache[h]; ok && prev == s {
+		return
+	}
+	d.textCache[h] = s
+	win32.SetWindowText(h, s)
 }
 
 func (d *Dialog) updateLiveReadouts() {
@@ -527,7 +555,7 @@ func (d *Dialog) updateLiveReadouts() {
 		if h == 0 {
 			continue
 		}
-		win32.SetWindowText(h, d.liveTof(i).LiveText())
+		d.setText(h, d.liveTof(i).LiveText())
 	}
 	desk := d.liveDesk()
 	if d.deskStatus != 0 {
@@ -537,10 +565,10 @@ func (d *Dialog) updateLiveReadouts() {
 		} else if desk.OK {
 			state = "waiting"
 		}
-		win32.SetWindowText(d.deskStatus, state)
+		d.setText(d.deskStatus, state)
 	}
 	if d.deskLive != 0 {
-		win32.SetWindowText(d.deskLive, "Live  "+desk.LiveText())
+		d.setText(d.deskLive, "Live  "+desk.LiveText())
 	}
 	if d.ctrlLive != 0 {
 		text := "Live  no signal"
@@ -549,7 +577,7 @@ func (d *Dialog) updateLiveReadouts() {
 				text = "Live  " + s.LiveText()
 			}
 		}
-		win32.SetWindowText(d.ctrlLive, text)
+		d.setText(d.ctrlLive, text)
 	}
 	ok := 0
 	live := 0
@@ -573,7 +601,7 @@ func (d *Dialog) updateLiveReadouts() {
 		} else if d.i2cPort == "b" {
 			port = fmt.Sprintf("Port B (GPIO%d SDA, GPIO%d SCL)", d.i2cSda, d.i2cScl)
 		}
-		win32.SetWindowText(d.foundStatus, fmt.Sprintf("%s. %d device(s), %d connected, %d streaming.%s%s", port, len(d.inventory), ok, live, sel, d.calNote))
+		d.setText(d.foundStatus, fmt.Sprintf("%s. %d device(s), %d connected, %d streaming.%s%s", port, len(d.inventory), ok, live, sel, d.calNote))
 	}
 }
 
@@ -758,6 +786,7 @@ func controlLabel(s config.SensorControl) string {
 }
 
 func (d *Dialog) refreshSensorLists() {
+	d.foundLabels = nil
 	selFound := win32.ListGet(d.foundList)
 	selCtrl := win32.ListGet(d.controlList)
 	win32.ListReset(d.foundList)

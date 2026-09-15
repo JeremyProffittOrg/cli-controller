@@ -69,6 +69,11 @@ Every I2C sensor path in `C:\dev\cli-controller\firmware\src\main.cpp` is bounde
 
 - [x] error-counters — `sensor` lines carry `err` and `init`; Sensors tab shows them when non-zero; flashed and verified on `COM10`.
 
+### settings-ui-starvation — Settings dialog "Not Responding" with live sensor stream
+
+- [x] settings-ui-starvation — live readouts are flushed at most every 125 ms and only changed texts are written; the dialog stays responsive (20 s watch, 0 hung samples) with all sensors streaming.
+- [x] phantom-slot-guard — firmware 0.7.3 creates a slot only when the part answers with its model id; host logs every new inventory id.
+
 ## Stop conditions (only these)
 
 - Flash fails two automatic attempts and one G0-bootloader attempt.
@@ -101,3 +106,4 @@ Every I2C sensor path in `C:\dev\cli-controller\firmware\src\main.cpp` is bounde
 - 2026-09-14: Operator said continue again: start adopt-discovered and error-counters.
 - 2026-09-14: Firmware 0.7.2 flashed to `COM10` (RAM 10.0 %, Flash 17.8 %). 10 s capture: tof 20.4-20.5 Hz x 4, accel 51.8 Hz, `sensor` lines carry `err 0 init 0`. Host reinstalled, `connected COM10`. In the live Sensors tab, `Use discovered` reported `Controls now match the hardware: 3 added, 3 removed` and the list became ch 0 left, ch 1 right, ch 3 accel, ch 5 off, ch 6 off; aborted without saving so the operator config is unchanged.
 - 2026-09-14: GitHub Actions run 34840172347 success. Run status #3 sent by SES, MessageId `010001a09fc3a993-a7b60044-12af-40d7-bae8-d3184ed5bac1-000000`.
+- 2026-09-15: Operator reported the Settings dialog "Not Responding" with "9 device(s)". Cause: every sensor frame (~130/s) rewrote every list row (LB_DELETESTRING+LB_INSERTSTRING) and every live label, starving the UI thread. Fix: WM_REFRESH posts coalesced, live readouts flushed from the 125 ms timer, texts written only when changed. Firmware 0.7.3 refuses phantom slots (model id required) and the host logs `sensor new ...` so the 9-device growth is traceable next time. Verified: dialog open on Sensors tab for 20 s, hung samples 0, `5 device(s), 5 connected, 5 streaming`.

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/JeremyProffittOrg/cli-controller/internal/applog"
@@ -39,6 +40,13 @@ type App struct {
 	motion    *motion.Engine
 	sensorOK  [5]bool
 	inventory []protocol.SensorStatus
+	// refreshQueued is set by the serial goroutine when a WM_REFRESH is already
+	// posted and cleared by drain, so a 130 msg/s sensor stream cannot flood
+	// the UI thread's posted-message queue and starve input and paint.
+	refreshQueued atomic.Bool
+	// liveDirty marks that sensor samples arrived since the Settings live
+	// readouts were last redrawn; the 125 ms timer flushes it.
+	liveDirty bool
 }
 
 type connEv struct {
@@ -190,6 +198,10 @@ func hostProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 		case 1:
 			inst.tray.Tick()
 			inst.applyMotion(inst.motion.Tick(time.Now()))
+			if inst.liveDirty {
+				inst.liveDirty = false
+				inst.settings.SetLive(inst.inventory)
+			}
 		case 2:
 			if inst.connected {
 				inst.sendState()
@@ -226,18 +238,23 @@ func (a *App) restartSerial() {
 		a.mu.Lock()
 		a.msgs = append(a.msgs, m)
 		a.mu.Unlock()
-		win32.Post(a.host, win32.WM_REFRESH, 0, 0)
+		if a.refreshQueued.CompareAndSwap(false, true) {
+			win32.Post(a.host, win32.WM_REFRESH, 0, 0)
+		}
 	}
 	a.ser.OnConn = func(ok bool, info serial.PortInfo) {
 		a.mu.Lock()
 		a.conns = append(a.conns, connEv{ok, info})
 		a.mu.Unlock()
-		win32.Post(a.host, win32.WM_REFRESH, 0, 0)
+		if a.refreshQueued.CompareAndSwap(false, true) {
+			win32.Post(a.host, win32.WM_REFRESH, 0, 0)
+		}
 	}
 	go a.ser.Run()
 }
 
 func (a *App) drain() {
+	a.refreshQueued.Store(false)
 	a.mu.Lock()
 	msgs := a.msgs
 	a.msgs = nil
@@ -299,11 +316,11 @@ func (a *App) handleMsg(m protocol.DeviceMsg) {
 		if m.St == 0 {
 			a.applyMotion(a.motion.Distance(m.SensorID(), m.MM, time.Now()))
 		}
-		a.settings.SetLive(a.inventory)
+		a.liveDirty = true
 	case "accel":
 		a.applySample(m)
 		a.applyMotion(a.motion.Accel(m.SensorID(), m.X, m.Y, m.Z, time.Now()))
-		a.settings.SetLive(a.inventory)
+		a.liveDirty = true
 	case "scan":
 		a.settings.SetInventory(a.inventory)
 	case "i2c":
@@ -358,6 +375,7 @@ func (a *App) upsertInventory(m protocol.DeviceMsg) {
 			return
 		}
 	}
+	a.log.Printf("sensor new %s kind=%s mux=%d ch=%d addr=%d chip=%s ok=%v", st.ID, st.Kind, st.Mux, st.Ch, st.Addr, st.Chip, st.OK)
 	a.inventory = append(a.inventory, st)
 	a.syncLegacyStatus()
 }
@@ -393,6 +411,7 @@ func (a *App) applySample(m protocol.DeviceMsg) {
 			return
 		}
 	}
+	a.log.Printf("sensor new %s from %s sample mux=%d ch=%d", st.ID, m.T, st.Mux, st.Ch)
 	a.inventory = append(a.inventory, st)
 	a.syncLegacyStatus()
 }

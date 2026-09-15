@@ -5,7 +5,7 @@
 #include <cstring>
 #include <math.h>
 
-static const char *kFw = "0.7.2";
+static const char *kFw = "0.7.3";
 static const uint32_t kHostTimeoutMs = 3000;
 static const uint32_t kOverlayHoldMs = 2500;
 static const int kDetentPulses = 4;
@@ -622,9 +622,27 @@ static int ensureSlot(uint8_t mux, uint8_t ch, uint8_t kind, uint8_t addr) {
   if (slotCount >= kMaxSlots) {
     return -1;
   }
+  // A new slot needs the part to answer with its model id: an address ACK
+  // alone can come from a bus glitch or a half-closed mux channel and
+  // would otherwise create a phantom device.
+  uint16_t chip = 0;
+  if (kind == kKindTof) {
+    uint16_t id16 = 0;
+    if (!tofRd16(addr, kTofRegModelId, &id16) || id16 != kTofModelId) {
+      return -1;
+    }
+    chip = id16;
+  } else {
+    uint8_t id8 = 0;
+    if (!accelRd(addr, 0x00, &id8, 1) || id8 != 0xE5) {
+      return -1;
+    }
+    chip = id8;
+  }
   idx = slotCount++;
   SensorSlot &s = slots[idx];
   memset(&s, 0, sizeof(s));
+  s.chip = chip;
   formatId(s.id, sizeof(s.id), mux, ch, kind, addr);
   s.mux = mux;
   s.ch = ch;
@@ -632,16 +650,7 @@ static int ensureSlot(uint8_t mux, uint8_t ch, uint8_t kind, uint8_t addr) {
   s.addr = addr;
   s.seen = true;
   if (kind == kKindTof) {
-    uint16_t id16 = 0;
-    if (tofRd16(addr, kTofRegModelId, &id16)) {
-      s.chip = id16;
-    }
     s.offsetMm = (int16_t)prefs.getShort(s.id, 0);
-  } else {
-    uint8_t id8 = 0;
-    if (accelRd(addr, 0x00, &id8, 1)) {
-      s.chip = id8;
-    }
   }
   return idx;
 }
