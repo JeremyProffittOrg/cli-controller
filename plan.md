@@ -74,6 +74,10 @@ Every I2C sensor path in `C:\dev\cli-controller\firmware\src\main.cpp` is bounde
 - [x] settings-ui-starvation — live readouts are flushed at most every 125 ms and only changed texts are written; the dialog stays responsive (20 s watch, 0 hung samples) with all sensors streaming.
 - [x] phantom-slot-guard — firmware 0.7.3 creates a slot only when the part answers with its model id; host logs every new inventory id.
 
+### tof-zero-photons — VL53L4CD reported st 2 sig 0 amb 0 on every frame
+
+- [x] tof-zero-photons — root cause found with the `diag` command (raw ambient register 0, config verified); a soft reset (register 0x0000) at every init restores ranging; all four sensors valid at 20 Hz on `COM10`.
+
 ## Stop conditions (only these)
 
 - Flash fails two automatic attempts and one G0-bootloader attempt.
@@ -107,3 +111,4 @@ Every I2C sensor path in `C:\dev\cli-controller\firmware\src\main.cpp` is bounde
 - 2026-09-14: Firmware 0.7.2 flashed to `COM10` (RAM 10.0 %, Flash 17.8 %). 10 s capture: tof 20.4-20.5 Hz x 4, accel 51.8 Hz, `sensor` lines carry `err 0 init 0`. Host reinstalled, `connected COM10`. In the live Sensors tab, `Use discovered` reported `Controls now match the hardware: 3 added, 3 removed` and the list became ch 0 left, ch 1 right, ch 3 accel, ch 5 off, ch 6 off; aborted without saving so the operator config is unchanged.
 - 2026-09-14: GitHub Actions run 34840172347 success. Run status #3 sent by SES, MessageId `010001a09fc3a993-a7b60044-12af-40d7-bae8-d3184ed5bac1-000000`.
 - 2026-09-15: Operator reported the Settings dialog "Not Responding" with "9 device(s)". Cause: every sensor frame (~130/s) rewrote every list row (LB_DELETESTRING+LB_INSERTSTRING) and every live label, starving the UI thread. Fix: WM_REFRESH posts coalesced, live readouts flushed from the 125 ms timer, texts written only when changed. Firmware 0.7.3 refuses phantom slots (model id required) and the host logs `sensor new ...` so the 9-device growth is traceable next time. Verified: dialog open on Sensors tab for 20 s, hung samples 0, `5 device(s), 5 connected, 5 streaming`.
+- 2026-09-15: Operator: "THERE IS NO MEASUREMENT OF THE TIME IN FLIGHT SENSORS". Old screenshot `docs/images/settings-sensors.png` shows the same `st 2 sig 0 amb 0` under firmware 0.6.x, so the fault predates this work. Firmware 0.7.4 `diag`: config read-back matches the ST table (only timing/threshold/status bytes differ), `fwst=03`, result block `04 09 .. d4 90 00 00 00 00 ..` = raw ambient 0 and raw signal 0 with 212 SPADs. VHV recalibration alone changed nothing. Soft reset on `mux:70:0:tof` (`{"t":"diag","id":..,"reset":1}`) then re-init: `st 0`, 35 mm, signal 15240 kcps. Soft reset added to `tofInitDevice`; after flashing, all four sensors report `st 0` on 100 % of frames: ch0 34-40 mm, ch1 32-38 mm, ch5 32-36 mm, ch6 49-55 mm, 20.2-20.4 Hz.

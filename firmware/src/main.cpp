@@ -5,7 +5,7 @@
 #include <cstring>
 #include <math.h>
 
-static const char *kFw = "0.7.3";
+static const char *kFw = "0.7.4";
 static const uint32_t kHostTimeoutMs = 3000;
 static const uint32_t kOverlayHoldMs = 2500;
 static const int kDetentPulses = 4;
@@ -52,7 +52,7 @@ static const uint8_t kAccelRate = 0x09;    // 50 Hz output data rate
 static const uint32_t kTofBudgetMs = 50;   // continuous ranging, 20 Hz per sensor
 static const uint16_t kTofSignalKcps = 50;
 static const uint16_t kTofSigmaMm = 120;
-static const uint32_t kStallMs = 600;
+static const uint32_t kStallMs = 1500;
 static const uint32_t kTofBootMs = 300;
 static const uint32_t kTofVhvMs = 500;
 static const uint32_t kInitRetryMs = 100;
@@ -322,10 +322,13 @@ static const uint8_t kTofDefaultConfig[91] = {
 
 struct TofResult {
   uint8_t status;
+  uint8_t rawStatus;
   uint16_t mm;
   uint16_t sigmaMm;
   uint16_t sigPerSpad;
   uint16_t ambPerSpad;
+  uint16_t sigKcps;
+  uint16_t ambKcps;
   uint16_t spad;
 };
 
@@ -444,12 +447,15 @@ static bool tofReadResult(uint8_t a, TofResult *r) {
     return false;
   }
   uint8_t st = b[0] & 0x1F;
+  r->rawStatus = b[0];
   r->status = st < 24 ? kStatusMap[st] : st;
   r->spad = (uint16_t)((((uint16_t)b[3] << 8) | b[4]) / 256);
   uint16_t sig = (uint16_t)((((uint16_t)b[5] << 8) | b[6]) * 8);
   uint16_t amb = (uint16_t)((((uint16_t)b[7] << 8) | b[8]) * 8);
   r->sigmaMm = (uint16_t)((((uint16_t)b[9] << 8) | b[10]) / 4);
   r->mm = (uint16_t)(((uint16_t)b[13] << 8) | b[14]);
+  r->sigKcps = sig;
+  r->ambKcps = amb;
   if (r->spad == 0) {
     r->status = 255;
     r->sigPerSpad = 0;
@@ -472,6 +478,15 @@ static bool tofInitDevice(uint8_t a, uint8_t *intPol, int16_t offsetMm) {
   if (!tofModelOk(a)) {
     return false;
   }
+  // Soft reset first (register 0x0000: 0 then 1). The sensors stay powered
+  // across Dial reboots and reflashes, and a VL53L4CD left mid-sequence by
+  // earlier firmware keeps reporting zero photons until it is reset; the
+  // ST init sequence alone does not clear that state. The second write is
+  // not always acknowledged, so the boot-status wait below is the check.
+  tofWr8(a, 0x0000, 0x00);
+  delay(2);
+  tofWr8(a, 0x0000, 0x01);
+  delay(2);
   uint32_t t0 = millis();
   for (;;) {
     uint8_t st = 0;
@@ -1030,8 +1045,8 @@ static void pollTof(uint32_t now) {
     calSample(s, r, now);
     uint16_t mm = r.status == 0 ? r.mm : 0;
     Serial.printf(
-        "{\"v\":1,\"t\":\"tof\",\"id\":\"%s\",\"mux\":%u,\"ch\":%u,\"mm\":%u,\"st\":%u,\"sig\":%u,\"amb\":%u,\"spad\":%u,\"sg\":%u}\n",
-        s.id, s.mux, s.ch, mm, r.status, r.sigPerSpad, r.ambPerSpad, r.spad, r.sigmaMm);
+        "{\"v\":1,\"t\":\"tof\",\"id\":\"%s\",\"mux\":%u,\"ch\":%u,\"mm\":%u,\"st\":%u,\"sig\":%u,\"amb\":%u,\"spad\":%u,\"sg\":%u,\"sr\":%u,\"ar\":%u,\"raw\":%u}\n",
+        s.id, s.mux, s.ch, mm, r.status, r.sigPerSpad, r.ambPerSpad, r.spad, r.sigmaMm, r.sigKcps, r.ambKcps, r.rawStatus);
   }
 }
 
@@ -1145,6 +1160,141 @@ static void startCalibration(const String &id, int targetMm) {
     return;
   }
   Serial.printf("{\"v\":1,\"t\":\"cal\",\"id\":\"%s\",\"ok\":false,\"offset\":0,\"avg\":0,\"n\":0}\n", id.c_str());
+}
+
+// ---- diagnostics ----------------------------------------------------------
+//
+// {"t":"diag","id":"mux:70:0:tof"}            dump configuration and a raw frame
+// {"t":"diag","id":"mux:70:0:tof","pad":1}    set I2C/GPIO pads to AVDD pull-up
+// {"t":"diag","id":"mux:70:0:tof","budget":N} re-time ranging to N ms (10-200)
+// {"t":"diag","id":"mux:70:0:tof","im":N}     autonomous mode, N ms period
+static void diagDump(SensorSlot &s) {
+  char m[200];
+  uint8_t cfg[91];
+  if (!muxSelect(s.mux, s.ch) || !tofRd(s.addr, 0x002D, cfg, sizeof(cfg))) {
+    snprintf(m, sizeof(m), "diag %s: config read failed", s.id);
+    sendLog(m);
+    return;
+  }
+  int mism = 0;
+  char first[64] = "";
+  size_t fl = 0;
+  for (uint8_t i = 0; i < sizeof(cfg); ++i) {
+    if (cfg[i] != kTofDefaultConfig[i]) {
+      mism++;
+      if (fl < sizeof(first) - 12) {
+        fl += (size_t)snprintf(first + fl, sizeof(first) - fl, " %02x=%02x/%02x", 0x2D + i, cfg[i], kTofDefaultConfig[i]);
+      }
+    }
+  }
+  snprintf(m, sizeof(m), "diag %s: config mismatches %d%s", s.id, mism, first);
+  sendLog(m);
+  uint16_t osc = 0, r24 = 0, cfgA = 0, cfgB = 0, sigma = 0, minr = 0;
+  uint8_t r08 = 0, r0b = 0, r2e = 0, r2f = 0, r30 = 0, r31 = 0, re5 = 0;
+  uint8_t im[4] = {0, 0, 0, 0};
+  tofRd16(s.addr, 0x0006, &osc);
+  tofRd8(s.addr, 0x0008, &r08);
+  tofRd8(s.addr, 0x000B, &r0b);
+  tofRd16(s.addr, 0x0024, &r24);
+  tofRd8(s.addr, 0x002E, &r2e);
+  tofRd8(s.addr, 0x002F, &r2f);
+  tofRd8(s.addr, 0x0030, &r30);
+  tofRd8(s.addr, 0x0031, &r31);
+  tofRd16(s.addr, 0x005E, &cfgA);
+  tofRd16(s.addr, 0x0061, &cfgB);
+  tofRd16(s.addr, 0x0064, &sigma);
+  tofRd16(s.addr, 0x0066, &minr);
+  tofRd(s.addr, 0x006C, im, 4);
+  tofRd8(s.addr, 0x00E5, &re5);
+  snprintf(m, sizeof(m),
+           "diag %s: osc=%u r08=%02x r0b=%02x r24=%04x r2e=%02x r2f=%02x r30=%02x r31=%02x cfgA=%04x cfgB=%04x sigma=%u minrate=%u im=%02x%02x%02x%02x fwst=%02x offset=%d",
+           s.id, osc, r08, r0b, r24, r2e, r2f, r30, r31, cfgA, cfgB, sigma, minr, im[0], im[1], im[2], im[3], re5, (int)s.offsetMm);
+  sendLog(m);
+  uint8_t b[15];
+  if (tofRd(s.addr, kTofRegResultBlock, b, sizeof(b))) {
+    snprintf(m, sizeof(m), "diag %s: result89-97 %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x", s.id,
+             b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12], b[13], b[14]);
+    sendLog(m);
+  }
+}
+
+static String jsonString(const String &line, const char *key);
+static int jsonInt(const String &line, const char *key, int def);
+
+static void runDiag(const String &line) {
+  String id = jsonString(line, "id");
+  int pad = jsonInt(line, "pad", 0);
+  int budget = jsonInt(line, "budget", 0);
+  int im = jsonInt(line, "im", 0);
+  int reset = jsonInt(line, "reset", 0);
+  int vhv = jsonInt(line, "vhv", 0);
+  for (uint8_t i = 0; i < slotCount; ++i) {
+    SensorSlot &s = slots[i];
+    if (s.kind != kKindTof || strcmp(s.id, id.c_str()) != 0) {
+      continue;
+    }
+    if (!muxSelect(s.mux, s.ch)) {
+      sendLog("diag: mux select failed");
+      return;
+    }
+    char m[96];
+    if (reset) {
+      // Soft reset (register 0x0000: 0 then 1), then a full init on the next
+      // initPending pass. Clears any state left by earlier firmware.
+      bool ok = tofWr8(s.addr, 0x0000, 0x00);
+      delay(2);
+      ok = tofWr8(s.addr, 0x0000, 0x01) && ok;
+      s.ranging = false;
+      setSlotOk(i, false);
+      snprintf(m, sizeof(m), "diag %s: soft reset %s, re-init pending", s.id, ok ? "ok" : "failed");
+      sendLog(m);
+      return;
+    }
+    if (vhv) {
+      // ST StartTemperatureUpdate: re-run the VHV (SPAD bias) calibration.
+      tofStopRanging(s.addr);
+      bool ok = tofWr8(s.addr, kTofRegVhvLoopBound, 0x81) && tofWr8(s.addr, 0x000B, 0x92) &&
+                tofWr8(s.addr, kTofRegSystemStart, 0x40);
+      bool ready = ok && tofWaitReady(s.addr, s.intPol, 1000);
+      tofClearInterrupt(s.addr);
+      tofStopRanging(s.addr);
+      ok = tofWr8(s.addr, kTofRegVhvLoopBound, 0x09) && tofWr8(s.addr, 0x000B, 0x00) && ok;
+      snprintf(m, sizeof(m), "diag %s: vhv recal %s (ready %s)", s.id, ok ? "ok" : "failed", ready ? "yes" : "timeout");
+      sendLog(m);
+      tofStartContinuous(s.addr);
+      s.dropFirst = true;
+      s.lastDataMs = millis();
+      s.nextPollMs = s.lastDataMs + kTofBudgetMs;
+    }
+    if (pad || budget || im) {
+      tofStopRanging(s.addr);
+      if (pad) {
+        uint8_t r2e = 0, r2f = 0;
+        tofRd8(s.addr, 0x002E, &r2e);
+        tofRd8(s.addr, 0x002F, &r2f);
+        bool ok = tofWr8(s.addr, 0x002E, (uint8_t)(r2e | 0x01)) && tofWr8(s.addr, 0x002F, (uint8_t)(r2f | 0x01));
+        snprintf(m, sizeof(m), "diag %s: pads to AVDD %s", s.id, ok ? "ok" : "failed");
+        sendLog(m);
+      }
+      if (budget || im) {
+        uint32_t bd = budget > 0 ? (uint32_t)budget : kTofBudgetMs;
+        bool ok = tofSetTiming(s.addr, bd, im > 0 ? (uint32_t)im : 0);
+        snprintf(m, sizeof(m), "diag %s: timing budget %lu im %d %s", s.id, (unsigned long)bd, im, ok ? "ok" : "failed");
+        sendLog(m);
+      }
+      if (im > 0) {
+        tofWr8(s.addr, kTofRegSystemStart, 0x40);
+      } else {
+        tofStartContinuous(s.addr);
+      }
+      s.dropFirst = true;
+      s.lastDataMs = millis();
+      s.nextPollMs = s.lastDataMs + (im > 0 ? (uint32_t)im : kTofBudgetMs);
+    }
+    diagDump(s);
+    return;
+  }
+  sendLog("diag: unknown id");
 }
 
 static void calSample(SensorSlot &s, const TofResult &r, uint32_t now) {
@@ -1472,6 +1622,9 @@ static void handleHostLine(const String &line) {
   }
   if (jsonHasType(s, "cal")) {
     startCalibration(jsonString(s, "id"), jsonInt(s, "mm", 0));
+  }
+  if (jsonHasType(s, "diag")) {
+    runDiag(s);
   }
   if (!wasLink) {
     dirty = true;
