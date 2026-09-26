@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -159,5 +160,23 @@ func TestDefaultBrandsAllOn(t *testing.T) {
 		if !b[n] {
 			t.Fatalf("%s default off", n)
 		}
+	}
+}
+
+func TestSkipPorts(t *testing.T) {
+	c := Default()
+	if !c.AddSkipPort(" com13 ") || c.AddSkipPort("COM13") {
+		t.Fatalf("add: %v", c.SkipPorts)
+	}
+	if !c.Skips("com13") || c.Skips("COM10") {
+		t.Fatalf("skips: %v", c.SkipPorts)
+	}
+	c.SkipPorts = append(c.SkipPorts, "com13", "", "COM7")
+	c.Normalize()
+	if strings.Join(c.SkipPorts, ",") != "COM13,COM7" {
+		t.Fatalf("normalize: %v", c.SkipPorts)
+	}
+	if !c.RemoveSkipPort("com13") || c.RemoveSkipPort("COM13") || c.Skips("COM13") {
+		t.Fatalf("remove: %v", c.SkipPorts)
 	}
 }

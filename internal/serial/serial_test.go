@@ -1,7 +1,9 @@
 package serial
 
 import (
+	"errors"
 	"io"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -132,5 +134,89 @@ func TestManualPort(t *testing.T) {
 func TestNormalizeID(t *testing.T) {
 	if normalizeID("303a") != "303A" || normalizeID("0x1001") != "1001" {
 		t.Fatal(normalizeID("303a"), normalizeID("0x1001"))
+	}
+}
+
+// pongPort answers a host ping with a pong, like a Dial that was already
+// running when the port opened (its boot hello went to no one).
+type pongPort struct{ fakePort }
+
+func (p *pongPort) Write(b []byte) (int, error) {
+	n, err := p.fakePort.Write(b)
+	if strings.Contains(string(b), `"t":"ping"`) {
+		p.mu.Lock()
+		p.r = append(p.r, []byte(`{"v":1,"t":"pong"}`+"\n")...)
+		p.mu.Unlock()
+	}
+	return n, err
+}
+
+func TestFindAcceptsPongFromRunningDial(t *testing.T) {
+	ports := []PortInfo{{Name: "COM10", IsUSB: true, VID: "303A", PID: "1001"}}
+	open := func(string) (Port, error) { return &pongPort{}, nil }
+	p, info, msg, err := Find(func() ([]PortInfo, error) { return ports, nil }, open, config.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+	if info.Name != "COM10" || msg.T != "pong" {
+		t.Fatalf("info %+v msg %+v", info, msg)
+	}
+}
+
+func TestFindReportsAndSkipsNonDialBoards(t *testing.T) {
+	// COM13 is another Espressif native-USB board (same 303A:1001) that
+	// never speaks the Dial protocol. Every open resets such a board.
+	ports := []PortInfo{
+		{Name: "COM13", IsUSB: true, VID: "303A", PID: "1001"},
+		{Name: "COM10", IsUSB: true, VID: "303A", PID: "1001"},
+	}
+	opened := map[string]int{}
+	dialUp := false
+	open := func(name string) (Port, error) {
+		opened[name]++
+		if name == "COM10" && dialUp {
+			return &fakePort{r: []byte(`{"v":1,"t":"hello","dev":"cli-dial"}` + "\n")}, nil
+		}
+		return &fakePort{r: []byte("I (1851) ln_main: some other firmware\n")}, nil
+	}
+	list := func() ([]PortInfo, error) { return ports, nil }
+	cfg := config.Default()
+
+	var rejected []string
+	_, _, _, err := FindWith(list, open, cfg, func(p PortInfo) { rejected = append(rejected, p.Name) })
+	if !errors.Is(err, ErrNotDial) {
+		t.Fatalf("err %v", err)
+	}
+	if strings.Join(rejected, ",") != "COM13,COM10" {
+		t.Fatalf("rejected %v", rejected)
+	}
+
+	// The caller persists only COM13 here; the Dial comes up on COM10.
+	cfg.AddSkipPort("COM13")
+	dialUp = true
+	p, info, _, err := FindWith(list, open, cfg, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+	if info.Name != "COM10" {
+		t.Fatalf("info %+v", info)
+	}
+	if opened["COM13"] != 1 {
+		t.Fatalf("COM13 opened %d times; a skipped port must never be reopened", opened["COM13"])
+	}
+}
+
+func TestManualPortIgnoresSkipList(t *testing.T) {
+	cfg := config.Default()
+	cfg.PortMode = "manual"
+	cfg.Port = "COM13"
+	cfg.AddSkipPort("COM13")
+	open := func(string) (Port, error) {
+		return &fakePort{r: []byte(`{"v":1,"t":"hello","dev":"cli-dial"}` + "\n")}, nil
+	}
+	if _, _, _, err := Find(func() ([]PortInfo, error) { return nil, nil }, open, cfg); err != nil {
+		t.Fatal(err)
 	}
 }

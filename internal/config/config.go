@@ -31,9 +31,15 @@ type SensorControl struct {
 }
 
 type Config struct {
-	PortMode           string          `json:"portMode"`
-	Port               string          `json:"port"`
-	LastSerial         string          `json:"lastSerial"`
+	PortMode   string `json:"portMode"`
+	Port       string `json:"port"`
+	LastSerial string `json:"lastSerial"`
+	// SkipPorts are ports that auto mode opened and found not to be the
+	// Dial (no hello and no pong). Auto mode never opens them again: an
+	// open resets most ESP32 native-USB boards, and the retry loop would
+	// otherwise reboot every other Espressif board on the PC every few
+	// seconds. Choosing a port manually in Settings removes it here.
+	SkipPorts          []string        `json:"skipPorts"`
 	DwellMs            int             `json:"dwellMs"`
 	OverlayView        string          `json:"overlayView"`
 	OverlayTheme       string          `json:"overlayTheme"`
@@ -167,6 +173,7 @@ func (c *Config) Normalize() {
 	if c.PortMode != "manual" {
 		c.PortMode = "auto"
 	}
+	c.SkipPorts = normalizePorts(c.SkipPorts)
 	if !validDwell(c.DwellMs) {
 		c.DwellMs = 2000
 	}
@@ -421,4 +428,55 @@ func Save(cfg Config) error {
 		return err
 	}
 	return os.WriteFile(p, append(b, '\n'), 0o644)
+}
+
+// normalizePorts upper-cases, trims and de-duplicates port names, keeping
+// their first-seen order.
+func normalizePorts(in []string) []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, name := range in {
+		n := strings.ToUpper(strings.TrimSpace(name))
+		if n == "" || seen[n] {
+			continue
+		}
+		seen[n] = true
+		out = append(out, n)
+	}
+	return out
+}
+
+// Skips reports whether auto mode must leave port alone.
+func (c Config) Skips(port string) bool {
+	n := strings.ToUpper(strings.TrimSpace(port))
+	for _, p := range c.SkipPorts {
+		if p == n {
+			return true
+		}
+	}
+	return false
+}
+
+// AddSkipPort records a port that is not the Dial. It reports whether the
+// list changed.
+func (c *Config) AddSkipPort(port string) bool {
+	if c.Skips(port) || strings.TrimSpace(port) == "" {
+		return false
+	}
+	c.SkipPorts = normalizePorts(append(c.SkipPorts, port))
+	return true
+}
+
+// RemoveSkipPort forgets a skipped port. It reports whether the list changed.
+func (c *Config) RemoveSkipPort(port string) bool {
+	n := strings.ToUpper(strings.TrimSpace(port))
+	out := c.SkipPorts[:0:0]
+	for _, p := range c.SkipPorts {
+		if p != n {
+			out = append(out, p)
+		}
+	}
+	changed := len(out) != len(c.SkipPorts)
+	c.SkipPorts = out
+	return changed
 }

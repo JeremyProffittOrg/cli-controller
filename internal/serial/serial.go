@@ -2,6 +2,7 @@ package serial
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -19,6 +20,9 @@ const (
 	SamsungVID   = "04E8"
 	Baud         = 115200
 	HelloWait    = 3 * time.Second
+	// PongWait bounds the ping fallback: a Dial that was already running
+	// (so its boot hello went to no one) still answers ping at once.
+	PongWait = time.Second
 )
 
 type PortInfo struct {
@@ -127,26 +131,52 @@ func probeOrder(ports []PortInfo, lastSerial string) []PortInfo {
 	return append(first, second...)
 }
 
-func waitHello(p Port, wait time.Duration) (protocol.DeviceMsg, error) {
+// ErrNotDial means the port opened but nothing on it spoke the Dial
+// protocol: no hello and no pong. Auto mode records such ports in
+// config.SkipPorts and never opens them again.
+var ErrNotDial = errors.New("not a Dial: no hello and no pong")
+
+// waitDial reads until the Dial identifies itself. A hello always counts; a
+// pong counts when acceptPong is set (the reply to our ping fallback).
+func waitDial(p Port, buf *bytes.Buffer, wait time.Duration, acceptPong bool) (protocol.DeviceMsg, bool) {
 	_ = p.SetReadTimeout(200 * time.Millisecond)
 	deadline := time.Now().Add(wait)
-	var buf bytes.Buffer
 	tmp := make([]byte, 256)
 	for time.Now().Before(deadline) {
-		n, err := p.Read(tmp)
+		n, _ := p.Read(tmp) // a read timeout is expected while waiting
 		if n > 0 {
-			for _, line := range protocol.SplitLines(&buf, tmp[:n]) {
+			for _, line := range protocol.SplitLines(buf, tmp[:n]) {
 				m, perr := protocol.ParseDeviceLine(line)
-				if perr == nil && m.Hello {
-					return m, nil
+				if perr != nil {
+					continue
+				}
+				if m.Hello || (acceptPong && m.T == "pong") {
+					return m, true
 				}
 			}
 		}
-		if err != nil && err != io.EOF {
-			// timeout is expected
-		}
 	}
-	return protocol.DeviceMsg{}, fmt.Errorf("no hello")
+	return protocol.DeviceMsg{}, false
+}
+
+// identify waits for the boot hello the open usually triggers, then falls
+// back to one ping for a Dial that did not reboot on open.
+func identify(p Port) (protocol.DeviceMsg, error) {
+	var buf bytes.Buffer
+	if m, ok := waitDial(p, &buf, HelloWait, false); ok {
+		return m, nil
+	}
+	ping, err := protocol.Ping()
+	if err != nil {
+		return protocol.DeviceMsg{}, err
+	}
+	if _, err := p.Write(ping); err != nil {
+		return protocol.DeviceMsg{}, err
+	}
+	if m, ok := waitDial(p, &buf, PongWait, true); ok {
+		return m, nil
+	}
+	return protocol.DeviceMsg{}, ErrNotDial
 }
 
 func OpenAndHello(open Opener, name string) (Port, protocol.DeviceMsg, error) {
@@ -154,7 +184,7 @@ func OpenAndHello(open Opener, name string) (Port, protocol.DeviceMsg, error) {
 	if err != nil {
 		return nil, protocol.DeviceMsg{}, err
 	}
-	m, err := waitHello(p, HelloWait)
+	m, err := identify(p)
 	if err != nil {
 		_ = p.Close()
 		return nil, protocol.DeviceMsg{}, err
@@ -173,6 +203,12 @@ func OpenAndHello(open Opener, name string) (Port, protocol.DeviceMsg, error) {
 }
 
 func Find(list Lister, open Opener, cfg config.Config) (Port, PortInfo, protocol.DeviceMsg, error) {
+	return FindWith(list, open, cfg, nil)
+}
+
+// FindWith is Find that reports, through notDial, every port auto mode
+// opened and found not to be the Dial, so the caller can persist it.
+func FindWith(list Lister, open Opener, cfg config.Config, notDial func(PortInfo)) (Port, PortInfo, protocol.DeviceMsg, error) {
 	ports, err := list()
 	if err != nil {
 		return nil, PortInfo{}, protocol.DeviceMsg{}, err
@@ -194,9 +230,15 @@ func Find(list Lister, open Opener, cfg config.Config) (Port, PortInfo, protocol
 		if skipAuto(c) && !isDialUSB(c) {
 			continue
 		}
+		if cfg.Skips(c.Name) {
+			continue
+		}
 		port, msg, err := OpenAndHello(open, c.Name)
 		if err == nil {
 			return port, c, msg, nil
+		}
+		if errors.Is(err, ErrNotDial) && notDial != nil {
+			notDial(c)
 		}
 		last = err
 	}
@@ -225,17 +267,23 @@ func PortLabel(p PortInfo) string {
 
 type EventHandler func(protocol.DeviceMsg)
 type ConnHandler func(connected bool, port PortInfo)
+type NotDialHandler func(port PortInfo)
 
 type Manager struct {
 	List   Lister
 	Open   Opener
 	OnMsg  EventHandler
 	OnConn ConnHandler
-	Write  func([]byte) error
+	// OnNotDial receives each port auto mode proved is not the Dial. The
+	// handler must persist it (config.AddSkipPort); until the config the
+	// Manager reads includes it, the Manager also skips it in memory.
+	OnNotDial NotDialHandler
+	Write     func([]byte) error
 
-	cfg  func() config.Config
-	stop chan struct{}
-	cur  Port
+	cfg     func() config.Config
+	stop    chan struct{}
+	cur     Port
+	notDial []string
 }
 
 func NewManager(cfg func() config.Config) *Manager {
@@ -302,7 +350,15 @@ func (m *Manager) session() error {
 		open = DefaultOpener
 	}
 	cfg := m.cfg()
-	p, info, _, err := Find(list, open, cfg)
+	for _, name := range m.notDial {
+		cfg.AddSkipPort(name)
+	}
+	p, info, _, err := FindWith(list, open, cfg, func(pi PortInfo) {
+		m.notDial = append(m.notDial, pi.Name)
+		if m.OnNotDial != nil {
+			m.OnNotDial(pi)
+		}
+	})
 	if err != nil {
 		return err
 	}

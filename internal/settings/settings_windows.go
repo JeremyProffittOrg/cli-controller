@@ -682,6 +682,8 @@ func (d *Dialog) save() {
 	} else if idx-1 < len(d.ports) {
 		cfg.PortMode = "manual"
 		cfg.Port = d.ports[idx-1].Name
+		// An explicit choice overrides an earlier "not the Dial" verdict.
+		cfg.RemoveSkipPort(cfg.Port)
 	}
 	delays := []int{250, 500, 750, 1000, 1500, 2000}
 	di := win32.ComboGet(d.dwell)

@@ -462,6 +462,7 @@ Configuration is stored at `%APPDATA%\cli-controller\config.json`. Logs are stor
 | `portMode` | `auto`, `manual` | `auto` |
 | `port` | Windows COM port name | empty |
 | `lastSerial` | Last device serial identity | empty |
+| `skipPorts` | COM port names automatic discovery never opens. Discovery adds a port when it answers with no Dial hello and no pong. Choosing that port manually removes it. | empty |
 | `dwellMs` | `250`, `500`, `750`, `1000`, `1500`, `2000` | `2000` |
 | `overlayView` | `classic`, `graphical` | `classic` |
 | `overlayTheme` | Installed theme ID | `neon-core` |
@@ -562,6 +563,13 @@ Local builds are for verification and installation. Repository delivery is compl
 - Confirm the USB cable supports data, not only charging.
 - Check `%APPDATA%\cli-controller\cli-controller.log` for `connected COMx`.
 - Select the correct port manually on the Controller tab if automatic discovery cannot identify it.
+- If the Dial port is listed in `skipPorts` in `config.json`, automatic discovery will not open it. Select the port manually once, or delete it from `skipPorts`.
+
+### Another ESP32 board on the PC keeps rebooting
+
+- Automatic discovery opens each Espressif `303A:1001` USB port to look for the Dial, and opening a port resets most ESP32 native-USB boards.
+- A board that answers with no Dial hello and no pong is opened once, logged as `skipping COMx from now on`, and added to `skipPorts`. It is never opened again.
+- To stop even that first open, add the board's port to `skipPorts` before you start the application, or select the Dial port manually.
 
 ### Flashing cannot open the COM port
 

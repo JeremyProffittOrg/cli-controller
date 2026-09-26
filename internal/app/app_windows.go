@@ -36,6 +36,7 @@ type App struct {
 	mu        sync.Mutex
 	msgs      []protocol.DeviceMsg
 	conns     []connEv
+	notDial   []serial.PortInfo
 	mutex     windows.Handle
 	motion    *motion.Engine
 	sensorOK  [5]bool
@@ -242,6 +243,14 @@ func (a *App) restartSerial() {
 			win32.Post(a.host, win32.WM_REFRESH, 0, 0)
 		}
 	}
+	a.ser.OnNotDial = func(info serial.PortInfo) {
+		a.mu.Lock()
+		a.notDial = append(a.notDial, info)
+		a.mu.Unlock()
+		if a.refreshQueued.CompareAndSwap(false, true) {
+			win32.Post(a.host, win32.WM_REFRESH, 0, 0)
+		}
+	}
 	a.ser.OnConn = func(ok bool, info serial.PortInfo) {
 		a.mu.Lock()
 		a.conns = append(a.conns, connEv{ok, info})
@@ -260,12 +269,30 @@ func (a *App) drain() {
 	a.msgs = nil
 	conns := a.conns
 	a.conns = nil
+	notDial := a.notDial
+	a.notDial = nil
 	a.mu.Unlock()
+	for _, p := range notDial {
+		a.handleNotDial(p)
+	}
 	for _, c := range conns {
 		a.handleConn(c.ok, c.info)
 	}
 	for _, m := range msgs {
 		a.handleMsg(m)
+	}
+}
+
+// handleNotDial persists a port auto mode proved is not the Dial, so no
+// later scan (or app restart) opens — and so resets — that board again.
+func (a *App) handleNotDial(info serial.PortInfo) {
+	if !a.cfg.AddSkipPort(info.Name) {
+		return
+	}
+	a.log.Printf("skipping %s from now on: USB %s:%s serial %q answered no hello and no pong",
+		info.Name, info.VID, info.PID, info.SerialNumber)
+	if err := config.Save(a.cfg); err != nil {
+		a.log.Printf("save skipPorts: %v", err)
 	}
 }
 
