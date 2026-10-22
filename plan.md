@@ -161,8 +161,8 @@ depends on: dial-clearance-geometry
 
 depends on: mount-drawing-sheets
 
-- [~] mount-artifact-push — `git diff --check` exits 0; commit only scoped files on `main`; `git push origin main` exits 0.
-- [~] mount-artifact-workflow — query the exact commit's `build` run until `status=completed` and `conclusion=success`.
+- [x] mount-artifact-push — `git diff --check` exits 0; commit only scoped files on `main`; `git push origin main` exits 0.
+- [x] mount-artifact-workflow — query the exact commit's `build` run until `status=completed` and `conclusion=success`.
 
 ## Stop conditions (only these)
 
@@ -188,3 +188,5 @@ depends on: mount-drawing-sheets
 - 2026-10-22: Visually checked all three sheets. M5Dial PNG: 2475 x 1575; VL53L4CD PNG: 2415 x 1600; PCA9548 PNG: 2613 x 1648. Moved the sensor sheet's overlapping note and included full label bounds in the other sheets. No other mount geometry changed. Native MATLAB source dimensions were updated; native MATLAB execution and physical printing were not performed.
 - 2026-10-22: Opened each final PNG through its Windows file association. `Get-Process Photos` reported `m5dial_shelf_case_drawing.png`, `pca9548_case_drawing.png`, and `vl53l4cd_case_drawing.png`. M5Dial was opened last.
 - 2026-10-22: `git diff --check` exited 0. `git -c credential.interactive=never -c core.askPass= push --dry-run origin main` exited 0 without an interactive prompt.
+- 2026-10-22: Committed and pushed `a5c05c4e216f2286f0a6cc3e72ba5aa2bf39c8a1` (`Add 10 mm above M5Dial and refresh mount diagrams`). `git push origin main` exited 0. Build run `39781807318` started for that exact SHA; firmware job `119834677181`, Windows job `119834677707`. The only worktree changes after the artifact commit were the two pre-existing changes listed above. Removed the task's two temporary mesh comparison files and empty temporary directory.
+- 2026-10-22: GitHub Actions run `39781807318` finished with `status=completed`, `conclusion=success`. Windows `go test ./...` and application build passed; firmware `pio run -d firmware` passed. The geometry and drawing milestones are complete. This final plan update records that verified result; its documentation-only push uses the same build workflow.
