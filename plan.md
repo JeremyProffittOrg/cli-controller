@@ -190,3 +190,71 @@ depends on: mount-drawing-sheets
 - 2026-10-22: `git diff --check` exited 0. `git -c credential.interactive=never -c core.askPass= push --dry-run origin main` exited 0 without an interactive prompt.
 - 2026-10-22: Committed and pushed `a5c05c4e216f2286f0a6cc3e72ba5aa2bf39c8a1` (`Add 10 mm above M5Dial and refresh mount diagrams`). `git push origin main` exited 0. Build run `39781807318` started for that exact SHA; firmware job `119834677181`, Windows job `119834677707`. The only worktree changes after the artifact commit were the two pre-existing changes listed above. Removed the task's two temporary mesh comparison files and empty temporary directory.
 - 2026-10-22: GitHub Actions run `39781807318` finished with `status=completed`, `conclusion=success`. Windows `go test ./...` and application build passed; firmware `pio run -d firmware` passed. The geometry and drawing milestones are complete. This final plan update records that verified result; its documentation-only push uses the same build workflow.
+
+## velcro-mount-variants — add broad adhesive pads and open five models in Bambu Studio
+
+Outcome: add PCA9548 and VL53L4CD versions with two solid mounting tabs, each the full case width and projecting half the body length. Package M5Dial, PCA screw, VL screw, PCA Velcro, and VL Velcro as five separate objects in `C:\dev\cli-controller\case\cli_controller_mounts.3mf`. Open that file by passing its path directly to the Bambu Studio executable.
+
+Non-goals: alter the original screw-mount STL files, PCB supports or pilot holes, sensor window, cable exits, M5Dial geometry, printer settings, or start a print. Velcro replaces the external mounting screws only.
+
+Files: `C:\dev\cli-controller\case\pca9548_case.scad`, `vl53l4cd_case.scad`, two new Velcro STL files, `cli_controller_mounts.3mf`, the three case README guides, and `C:\dev\cli-controller\plan.md`. Reuse the existing SCAD geometry with `mount_style="screw"` as the unchanged default and `mount_style="velcro"` for the new versions.
+
+Proof: OpenSCAD exports exit 0; each new mesh is closed, consistently oriented, and connected. Check full-width solid tab extents, tab thickness, no external screw holes, and unchanged body sections. Read back the 3MF ZIP/XML and confirm five separate objects/build items with the source mesh dimensions and no overlap. Launch Bambu Studio with the exact 3MF path as a command-line argument. `git diff --check` and the pushed commit's build must pass.
+
+## Locked decisions (user-confirmed; do not revisit)
+
+- 2026-10-22: "create new versions of the pca and vl models which have large tabs the width of the case and 1/2 the length, so that we can use velcrow instead of screws.  Then open all 5 models in bambulabs studio".
+- 2026-10-22: "put them in a 3mf file and open that".
+- 2026-10-22: "why are you trying to control my computer, build the 3mf and open it as a command line parameter opening bambu labs". Use file generation and a direct executable launch only; no further Computer Use calls or UI input.
+
+## Verified facts
+
+- `C:\dev\cli-controller\case\pca9548_case.scad`: body 53.64 x 33.32 mm; standard height 12 mm; tall height 24 mm; existing end tabs 3 mm thick at the rim. New pad dimensions are 33.32 mm wide x 26.82 mm outward per end, with a 3 mm overlap into the end wall.
+- `C:\dev\cli-controller\case\vl53l4cd_case.scad`: body width 39 mm, length between the mounting ends 24.78 mm, depth 12 mm; back tabs are 4 mm thick. New pads are 39 mm wide x 12.39 mm outward per end.
+- `C:\Program Files\Bambu Studio\bambu-studio.exe` is installed. Computer Use returned Bambu Studio as not running, with no open project to replace.
+- `git status --short --branch`: `main` tracks `origin/main`; preserve the existing deleted cutaway PNG and untracked firmware component manifest.
+- Existing isolated plotting environment: `C:\Users\Jeremy\AppData\Local\uv\cache\archive-v0\bQGN7nFnyiAQmL9ak3Q7L\Scripts\python.exe`; no new project dependency is needed for mesh checks.
+
+Assumptions: use adhesive-backed Velcro on solid pads, not strap slots. Use the standard 12 mm PCA body unless the optional height question is answered differently. "All 5" means the three main screw designs plus the two new Velcro designs, rather than adding the alternate PCA height as a sixth object.
+
+## velcro-models — generate and verify the two additional mount options
+
+### velcro-pad-geometry — preserve the bodies and enlarge only the mounting tabs
+
+- [x] velcro-pad-exports — run `"C:\Program Files\OpenSCAD\openscad.com" --export-format binstl -D "mount_style=\"velcro\"" -o <new STL> <matching SCAD>`; add `-D "variant=\"std\""` for PCA. Both commands must exit 0.
+- [x] velcro-pad-checks — run NumPy/trimesh assertions for PCA bounds 107.28 x 33.32 x 12 mm and VL print-orientation bounds 39 x 49.56 x 12 mm; verify closed connected meshes, solid pads, and unchanged body features.
+
+### five-model-preview — inspect all requested models in Bambu Studio
+
+depends on: velcro-pad-geometry
+
+- [x] studio-five-objects — build and read back `cli_controller_mounts.3mf` with five named, separate, nonoverlapping mesh objects in millimetres. Launch `"C:\Program Files\Bambu Studio\bambu-studio.exe" "C:\dev\cli-controller\case\cli_controller_mounts.3mf"`. Do not use UI automation, change printer settings, or start a print.
+
+### velcro-model-delivery — publish the new variants through the repository workflow
+
+depends on: five-model-preview
+
+- [~] velcro-model-push — `git diff --check`, focused commit, and `git push origin main` exit 0.
+- [~] velcro-model-build — exact pushed commit's GitHub `build` reaches `completed/success`.
+
+## Stop conditions (only these)
+
+- Required credentials or resources are unavailable after configured access paths are checked.
+- A locked desktop, security or authentication prompt, or unrelated unsaved project requires the operator's action.
+- The task requires an unrelated destructive action or a material expansion of scope.
+
+## Velcro job restart policy
+
+- Export each STL in a tracked hidden process; capture exit, stderr, stdout, and a ten-minute deadline. Retry once only after fixing an identified source or environment error. Check both success and failure within 60 seconds.
+- Launch Bambu Studio directly with the 3MF argument and track the returned process. The requested application window is allowed; all short CLI jobs stay hidden. Do not use Computer Use or UI input.
+- GitHub builds: fix deterministic scoped failures before retry; at most two transient retries. Preserve user changes and use only the existing push-to-main workflow. No recurring automation, print submission, or email.
+
+## Execution log
+
+- 2026-10-22: Read both SCAD sources, existing artifact inventory, current plan, Bambu Studio installation, and Computer Use guidance. Confirmed the dimensions above and that Bambu Studio has no running project.
+- 2026-10-22: `pca-velcro-export` PID 30108 exited 0 in 12.7 seconds; `vl-velcro-export` PID 12628 exited 0 in 3.7 seconds. Both OpenSCAD exports reported `Simple: yes`. Initial mesh reads confirm PCA bounds 107.28 x 33.32 x 12 mm (5,580 triangles) and VL bounds 39 x 49.56 x 12 mm (2,912 triangles), both watertight with consistent winding.
+- 2026-10-22: User stopped the initial Computer Use attempt, then requested a single 3MF and explicitly selected command-line opening. All remaining work uses file access and direct background processes, except the explicitly requested visible Bambu Studio launch.
+- 2026-10-22: NumPy/trimesh acceptance checks passed: `2 connected watertight Velcro meshes; 40 solid-pad probes; 16 tab-boundary probes; 588 unchanged-body probes`. Both new STL files keep the expected full pad widths, half-length projections, and original pad thicknesses. SHA-256 comparisons confirmed all five pre-existing STL/3MF artifacts were unchanged.
+- 2026-10-22: Built `C:\dev\cli-controller\case\cli_controller_mounts.3mf` using Python standard-library ZIP/XML packaging and the five existing STL triangle meshes. File size 324,661 bytes. Readback result: `PASS: 3MF readback; 5 separate objects; 30316 triangles; millimetres; no overlap; all bases at Z=0`. The five names are `M5Dial shelf case`, `PCA9548 screw mount - 12 mm`, `VL53L4CD screw mount`, `PCA9548 Velcro mount - 12 mm`, and `VL53L4CD Velcro mount`. Source orientations are retained; XY centers are (65,60), (60,145), (135,145), (180,60), (195,145) mm. No printer profiles, slice settings, G-code, or credentials are included.
+- 2026-10-22: Launched `"C:\Program Files\Bambu Studio\bambu-studio.exe" "C:\dev\cli-controller\case\cli_controller_mounts.3mf"` directly, PID 9884. Read-only `tasklist /FI "IMAGENAME eq bambu-studio.exe" /V /FO CSV` reported window title `cli_controller_mounts - BambuStudio` for that PID. No further UI automation was used after the user's command-line instruction.
+- 2026-10-22: Updated the three case guides with Velcro dimensions, regeneration arguments, and the combined 3MF link. `git diff --check` exited 0.

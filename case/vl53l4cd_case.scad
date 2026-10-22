@@ -1,10 +1,13 @@
 // Adafruit VL53L4CD (product 5396) time-of-flight case.
-// Units: millimetres. Matches vl53l4cd_case.m / draw_vl53l4cd_case.py.
+// Units: millimetres. Screw version matches vl53l4cd_case.m / draw_vl53l4cd_case.py.
 // Open back. Four 3 mm bosses with 2 mm x 4 mm holes (not through the front).
 // Half-circle wings on the BACK. Print with the BACK on the bed (Z=0).
+// With -D mount_style="velcro", solid 39 mm-wide tabs project half the
+// 24.78 mm case length (12.39 mm) from each end, without mounting holes.
 
 $fn = 64;
 eps = 0.2;
+mount_style = "screw";             // "screw" | "velcro"
 
 // --- Adafruit VL53L4CD breakout ---
 pcb_x       = 25.40;
@@ -61,16 +64,20 @@ module side_cut_2d() {
 // 2D wing in X (along the 39 mm side) and Y (out from the body).
 // offset(-r) offset(r) rounds the two convex 90 deg roots going out along the outline.
 module wing_2d() {
-    offset(r = -wing_fillet) offset(r = wing_fillet)
-        union() {
-            translate([-outer_x / 2, -wall - 2])
-                square([outer_x, wall + 2.4]);
-            intersection() {
-                circle(r = wing_r);
-                translate([-wing_r - 1, 0])
-                    square([2 * wing_r + 2, wing_r + 1]);
+    if (mount_style == "velcro")
+        translate([-outer_x / 2, -wall])
+            square([outer_x, wall + outer_z / 2]);
+    else
+        offset(r = -wing_fillet) offset(r = wing_fillet)
+            union() {
+                translate([-outer_x / 2, -wall - 2])
+                    square([outer_x, wall + 2.4]);
+                intersection() {
+                    circle(r = wing_r);
+                    translate([-wing_r - 1, 0])
+                        square([2 * wing_r + 2, wing_r + 1]);
+                }
             }
-        }
 }
 
 // Fill the L where the wall rises off the wing, r going out into the empty corner.
@@ -131,11 +138,12 @@ module shell() {
                     linear_extrude(wall + 2, center = true)
                         side_cut_2d();
 
-        // 4 mm holes, centred in the 12 mm wings
-        for (sz = [-1, 1])
-            translate([0, -eps, sz * (outer_z / 2 + wing_hole_out)])
-                rotate([-90, 0, 0])
-                    cylinder(d = wing_hole_d, h = wing_t + 2 * eps);
+        // The Velcro pads are solid; only the screw wings have mounting holes.
+        if (mount_style == "screw")
+            for (sz = [-1, 1])
+                translate([0, -eps, sz * (outer_z / 2 + wing_hole_out)])
+                    rotate([-90, 0, 0])
+                        cylinder(d = wing_hole_d, h = wing_t + 2 * eps);
     }
 }
 

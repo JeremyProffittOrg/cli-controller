@@ -24,6 +24,18 @@ This compact open-back case fits the Adafruit VL53L4CD time-of-flight breakout, 
 
 The pilot holes stop before the front face. They do not break through the sensor side of the case.
 
+## Velcro mounting version
+
+[Download the Velcro STL](vl53l4cd_case_velcro.stl) · [Open all five mounts in one 3MF](cli_controller_mounts.3mf)
+
+The Velcro version replaces the two screw wings with solid pads. Each pad spans the 39 mm case width, projects 12.39 mm (half the 24.78 mm body length), and remains 4 mm thick against the back mounting plane. The print-orientation envelope is 39 × 49.56 × 12 mm. External mounting holes are omitted; the sensor window, cable cutouts, board bosses, and internal screw pilots stay unchanged. Use adhesive-backed hook-and-loop material on the flat pads.
+
+The original screw version remains the default. Generate the Velcro version with:
+
+```powershell
+& 'C:\Program Files\OpenSCAD\openscad.com' --export-format binstl -D 'mount_style="velcro"' -o case\vl53l4cd_case_velcro.stl case\vl53l4cd_case.scad
+```
+
 ## MATLAB mechanical drawing
 
 [`vl53l4cd_case.m`](vl53l4cd_case.m) contains the native MATLAB drawing. The preview below uses the same board and case parameters and a MATLAB-compatible palette.

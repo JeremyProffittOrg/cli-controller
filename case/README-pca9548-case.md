@@ -81,6 +81,18 @@ One tab on each short end, centred on Y = 0:
 The 4 mm hole sits at the centre of the rounded end, which is why the tab is
 10 mm wide: it keeps 3.00 mm of material around the hole on every side.
 
+## Velcro mounting version
+
+[Download the 12 mm Velcro STL](pca9548_case_std_velcro.stl) · [Open all five mounts in one 3MF](cli_controller_mounts.3mf)
+
+The Velcro version has two solid pads, each 33.32 mm wide and projecting 26.82 mm (half the body length) beyond an end wall. The pads remain 3 mm thick at the rim and have no external screw holes. Overall size is 107.28 × 33.32 × 12 mm. The board supports, M2 pilot holes, cavity, and cable exits are unchanged. Apply adhesive-backed hook-and-loop material to the flat pads; the PCB still uses its internal mounting screws.
+
+The original screw version remains the default. Generate the Velcro version with:
+
+```powershell
+& 'C:\Program Files\OpenSCAD\openscad.com' --export-format binstl -D 'variant="std"' -D 'mount_style="velcro"' -o case\pca9548_case_std_velcro.stl case\pca9548_case.scad
+```
+
 ## Printing
 
 Print floor-down, open top up.

@@ -1,6 +1,19 @@
 # Printable cases
 
-This directory contains ready-to-slice, watertight STL models for CLI Controller hardware. Each model includes its parametric OpenSCAD source, MATLAB mechanical-drawing source, a checked-in drawing sheet, and STL renders from multiple angles.
+This directory contains ready-to-slice, watertight STL models for CLI Controller hardware. Each original screw-mount model includes its parametric OpenSCAD source, MATLAB mechanical-drawing source, a checked-in drawing sheet, and STL renders from multiple angles. The Velcro variants reuse the corresponding OpenSCAD source.
+
+## Five-model 3MF
+
+[Download all five mount models](cli_controller_mounts.3mf): M5Dial, the standard 12 mm PCA9548 screw mount, the VL53L4CD screw mount, and the two new Velcro mounts. The file contains five separate objects in millimetres, arranged without overlap. It contains geometry only and does not change printer or slicing settings. The existing drawing sheets and STL views show the screw versions.
+
+- [PCA9548 Velcro STL](pca9548_case_std_velcro.stl): two solid pads, each 33.32 mm wide × 26.82 mm outward × 3 mm thick.
+- [VL53L4CD Velcro STL](vl53l4cd_case_velcro.stl): two solid pads, each 39 mm wide × 12.39 mm outward × 4 mm thick.
+
+Open the combined file directly from `cmd.exe`:
+
+```bat
+"C:\Program Files\Bambu Studio\bambu-studio.exe" "C:\dev\cli-controller\case\cli_controller_mounts.3mf"
+```
 
 | M5Stack Dial under-shelf case | Adafruit VL53L4CD sensor case | Adafruit PCA9548 I2C mux case |
 |---|---|---|

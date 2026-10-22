@@ -1,5 +1,5 @@
 // Adafruit PCA9548 8-channel STEMMA QT / Qwiic I2C multiplexer (product 5626) case.
-// Units: millimetres. Matches pca9548_case.m / draw_pca9548_case.py.
+// Units: millimetres. Screw version matches pca9548_case.m / draw_pca9548_case.py.
 //
 // Open-top tray. The board drops in component-side down onto four standoffs and
 // is screwed down from above. A 3 mm buffer surrounds the board on every side.
@@ -13,6 +13,8 @@
 // Two variants, selected with -D variant="std" or -D variant="tall".
 // The cutouts and the tabs are referenced to the rim, so they move up with the
 // wall: Z 9-12 in the std variant, Z 21-24 in the tall variant.
+// With -D mount_style="velcro", solid tabs span the 33.32 mm case width and
+// project half the 53.64 mm body length (26.82 mm) from each end, without holes.
 //
 // Board geometry is taken from adafruit/Adafruit-PCA9548-PCB,
 // "PCA9548A QT Board.brd" (Eagle 9.6.2), layer 20 outline plus the four
@@ -24,6 +26,7 @@ $fn = 96;
 eps = 0.2;
 
 variant = "std";                  // "std" | "tall"
+mount_style = "screw";             // "screw" | "velcro"
 
 // --- Adafruit PCA9548 breakout, measured from the Eagle board file ---
 pcb_x        = 40.64;             // layer-20 outline, x 0 .. 40.64
@@ -100,12 +103,17 @@ module cut_through_y() {
 
 // Mounting tab plan shape, reaching +X from the end wall face at the origin.
 module tab_2d() {
-    hull() {
-        translate([-eps, -tab_r])
-            square([tab_out - tab_r + eps, 2 * tab_r]);
-        translate([tab_out - tab_r, 0])
-            circle(r = tab_r);
-    }
+    if (mount_style == "velcro")
+        // Overlap the end wall without covering the board cavity.
+        translate([-wall, -outer_y / 2])
+            square([wall + outer_x / 2, outer_y]);
+    else
+        hull() {
+            translate([-eps, -tab_r])
+                square([tab_out - tab_r + eps, 2 * tab_r]);
+            translate([tab_out - tab_r, 0])
+                circle(r = tab_r);
+        }
 }
 
 module tabs() {
@@ -148,10 +156,11 @@ module case_body() {
                 translate([px, sy * (outer_y / 2 - wall / 2), 0])
                     cut_through_y();
 
-        // 4 mm hole midway along each tab
-        for (sx = [-1, 1])
-            translate([sx * (outer_x / 2 + tab_hole_out), 0, tab_z0 - eps])
-                cylinder(d = tab_hole_d, h = tab_h + 2 * eps);
+        // The Velcro pads are solid; only the screw tabs have mounting holes.
+        if (mount_style == "screw")
+            for (sx = [-1, 1])
+                translate([sx * (outer_x / 2 + tab_hole_out), 0, tab_z0 - eps])
+                    cylinder(d = tab_hole_d, h = tab_h + 2 * eps);
 
         // M2 pilot holes down through the standoffs into the floor
         for (sx = [-1, 1])
