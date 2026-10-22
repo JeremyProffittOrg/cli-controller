@@ -234,8 +234,8 @@ depends on: velcro-pad-geometry
 
 depends on: five-model-preview
 
-- [~] velcro-model-push — `git diff --check`, focused commit, and `git push origin main` exit 0.
-- [~] velcro-model-build — exact pushed commit's GitHub `build` reaches `completed/success`.
+- [x] velcro-model-push — `git diff --check`, focused commit, and `git push origin main` exit 0.
+- [x] velcro-model-build — exact pushed commit's GitHub `build` reaches `completed/success`.
 
 ## Stop conditions (only these)
 
@@ -258,3 +258,5 @@ depends on: five-model-preview
 - 2026-10-22: Built `C:\dev\cli-controller\case\cli_controller_mounts.3mf` using Python standard-library ZIP/XML packaging and the five existing STL triangle meshes. File size 324,661 bytes. Readback result: `PASS: 3MF readback; 5 separate objects; 30316 triangles; millimetres; no overlap; all bases at Z=0`. The five names are `M5Dial shelf case`, `PCA9548 screw mount - 12 mm`, `VL53L4CD screw mount`, `PCA9548 Velcro mount - 12 mm`, and `VL53L4CD Velcro mount`. Source orientations are retained; XY centers are (65,60), (60,145), (135,145), (180,60), (195,145) mm. No printer profiles, slice settings, G-code, or credentials are included.
 - 2026-10-22: Launched `"C:\Program Files\Bambu Studio\bambu-studio.exe" "C:\dev\cli-controller\case\cli_controller_mounts.3mf"` directly, PID 9884. Read-only `tasklist /FI "IMAGENAME eq bambu-studio.exe" /V /FO CSV` reported window title `cli_controller_mounts - BambuStudio` for that PID. No further UI automation was used after the user's command-line instruction.
 - 2026-10-22: Updated the three case guides with Velcro dimensions, regeneration arguments, and the combined 3MF link. `git diff --check` exited 0.
+- 2026-10-22: Committed and pushed `070fb726f46056df231ac262519560a6fb3a1aae` (`Add Velcro mounts and a combined five-model 3MF`). `git push origin main` exited 0. GitHub build run `39812167272` is monitoring that exact commit. Removed the empty task temporary directory. Original user worktree changes remain untouched.
+- 2026-10-22: Build run `39812167272` finished `completed/success` for commit `070fb726f46056df231ac262519560a6fb3a1aae`; both `windows-app` (`go test ./...` and application build) and `firmware` (`pio run -d firmware`) passed. All five models are packaged in the verified 3MF, and the command-line Bambu Studio launch is confirmed by its matching process window title. This documentation-only completion record uses the same repository push workflow.
