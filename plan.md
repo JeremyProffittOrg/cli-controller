@@ -114,3 +114,77 @@ Every I2C sensor path in `C:\dev\cli-controller\firmware\src\main.cpp` is bounde
 - 2026-09-15: Operator: "THERE IS NO MEASUREMENT OF THE TIME IN FLIGHT SENSORS". Old screenshot `docs/images/settings-sensors.png` shows the same `st 2 sig 0 amb 0` under firmware 0.6.x, so the fault predates this work. Firmware 0.7.4 `diag`: config read-back matches the ST table (only timing/threshold/status bytes differ), `fwst=03`, result block `04 09 .. d4 90 00 00 00 00 ..` = raw ambient 0 and raw signal 0 with 212 SPADs. VHV recalibration alone changed nothing. Soft reset on `mux:70:0:tof` (`{"t":"diag","id":..,"reset":1}`) then re-init: `st 0`, 35 mm, signal 15240 kcps. Soft reset added to `tofInitDevice`; after flashing, all four sensors report `st 0` on 100 % of frames: ch0 34-40 mm, ch1 32-38 mm, ch5 32-36 mm, ch6 49-55 mm, 20.2-20.4 Hz.
 - 2026-09-15: Host reinstalled; Sensors tab live: ch0 36 mm, ch1 34 mm, ch5 31 mm, ch6 53 mm, accel x -834 y -425 z -538 mg. Commit `3cafe2e` pushed; CI success.
 - 2026-09-15: Run status #4 (with correction) sent by SES, MessageId `010001a0a3a37a59-7a2b5b97-6bff-47c1-9716-8e283d9e30e8-000000`.
+
+## m5dial-top-clearance — add 10 mm above the Dial and rebuild the mount drawings
+
+Outcome: increase the M5Dial height from 62 to 72 mm. Relative to the shelf mounting face, move the Dial, rear cable slot, LED holes, and bottom profile down together by 10 mm. Rebuild and open the M5Dial, VL53L4CD, and PCA9548 PNG drawing sheets.
+
+Non-goals: change the other mounts' geometry, firmware, host software, hole diameters, mounting footprint, wall thickness, or top thickness.
+
+Files: `C:\dev\cli-controller\case\m5dial_shelf_case.scad`, `m5dial_shelf_case.m`, `draw_m5dial_case.py`, the matching STL and seven STL views, the three existing drawing PNGs, `case\README-m5dial-shelf-case.md`, `case\README.md`, and this plan. Drawing layout changes are limited to these requested sheets if visual checks find clipped or overlapping labels.
+
+Proof: the exported M5Dial STL must be one closed mesh with bounds 86 x 50.8 x 72 mm. Mesh sections and source dimensions must preserve the lower features and add 10 mm of top clearance. All three drawing commands and `git diff --check` must exit 0. The three PNGs must open in Photos, and the pushed commit's build workflow must finish successfully.
+
+## Locked decisions (user-confirmed; do not revisit)
+
+- 2026-10-22: "m5dial".
+- 2026-10-22: "add 10mm from the top of the dial hole to the top of the mount, bringing everything down below it".
+- 2026-10-22: "then show me a new diagraam, and build diagrams for the other mounts".
+- 2026-10-22: "and open it" remains the requested display action for the new diagrams.
+
+## Verified facts
+
+- `C:\dev\cli-controller\case\m5dial_shelf_case.scad`: current height is 62 mm, Dial center Z is 31.5 mm, inner top Z is 57 mm, and cable slot center Z is 50 mm. The bottom is the model's Z=0 datum.
+- `C:\dev\cli-controller\case\README.md`: the other mounts are VL53L4CD and PCA9548; PCA9548 has standard and tall variants on one drawing sheet.
+- `git status --short --branch`: on `main`; preserve the pre-existing deletion of `case/m5dial_shelf_case_cutaway.png` and untracked `firmware/src/idf_component.yml`.
+- `git ls-remote origin refs/heads/main`: `3dd7d34d17c8d3769c8c5046c54adc199ac85f0a`; GitHub connector confirms `JeremyProffittOrg/cli-controller`, default branch `main`, push access.
+- `C:\Program Files\OpenSCAD\openscad.com` exists. Existing drawing scripts require Matplotlib, NumPy, and trimesh; use an isolated `uv run --no-project` environment for those existing dependencies.
+- `C:\dev\cli-controller\.github\workflows\build.yml`: pushes to `main` run Windows Go tests/build and the PlatformIO firmware build; no local deployment is needed.
+
+Assumption: "add 10mm" means 10 mm more than the current gap. The nominal hole-top-to-mount distance becomes 17.9 mm, with the existing print allowance retained.
+
+## mount-artifacts — generate and verify the requested mechanical outputs
+
+### dial-clearance-geometry — keep lower features together below the shelf
+
+- [x] dial-clearance-sources — add one top-clearance parameter in SCAD, MATLAB, and Python; keep the cable slot tied to the Dial. Export with `"C:\Program Files\OpenSCAD\openscad.com" -o C:\dev\cli-controller\case\m5dial_shelf_case.stl C:\dev\cli-controller\case\m5dial_shelf_case.scad`; exit 0 and a closed 72 mm mesh are required.
+- [x] dial-clearance-check — verify bounds, mesh closure, and unchanged lower feature positions against the original STL using the existing trimesh/NumPy dependencies; assertions must pass.
+
+### mount-drawing-sheets — show all current mounts with dimensions
+
+depends on: dial-clearance-geometry
+
+- [x] mount-sheet-build — run `python C:\dev\cli-controller\case\render_stl_views.py m5dial_shelf_case`, then `python C:\dev\cli-controller\case\draw_m5dial_case.py`, `python C:\dev\cli-controller\case\draw_vl53l4cd_case.py`, and `python C:\dev\cli-controller\case\draw_pca9548_case.py` in the isolated plotting environment; all exit 0.
+- [x] mount-sheet-display — inspect the three PNGs for readable dimensions and open them with `Start-Process -FilePath <absolute PNG path>`; Photos process titles must identify the requested files.
+
+### mount-artifact-delivery — publish only the requested model and drawing changes
+
+depends on: mount-drawing-sheets
+
+- [~] mount-artifact-push — `git diff --check` exits 0; commit only scoped files on `main`; `git push origin main` exits 0.
+- [~] mount-artifact-workflow — query the exact commit's `build` run until `status=completed` and `conclusion=success`.
+
+## Stop conditions (only these)
+
+- Missing credentials or resources prevent export or publication after the available configured paths are checked.
+- An unrelated destructive action or material expansion of scope is required.
+
+## Mount job restart policy
+
+- Run short commands with direct hidden child processes and no shell windows. Run exports and rendering in tracked background processes with captured stdout, stderr, exit code, and a ten-minute deadline. Check failure and success at intervals no longer than 60 seconds.
+- OpenSCAD export: one normal attempt; after a deterministic fix, one retry. A timeout or nonzero exit is failure, not success. Preserve the original STL in machine-local temporary storage until the new mesh passes verification.
+- Drawing generation: fix an identified source or environment error before one retry. Reuse the existing dependency set; no new project dependencies or test framework.
+- Git push/build: no interactive prompts. Fix deterministic scoped failures before a retry; allow at most two transient retries with backoff. Use the GitHub connector or public GitHub Actions API to monitor because local `gh` is not signed in.
+- No scheduled jobs, service changes, or email are part of this task.
+
+## Execution log
+
+- 2026-10-22: Read the three M5Dial sources, existing drawing generators, STL renderer, case guides, root plan, and build workflow. Confirmed the source geometry, default branch, OpenSCAD installation, Git remote access, and unrelated worktree changes listed above.
+- 2026-10-22: `uv run --no-project --python C:/Users/Jeremy/AppData/Local/Programs/Python/Python313/python.exe --with matplotlib --with trimesh python -c "import sys,matplotlib,numpy,trimesh; print(sys.executable); print('matplotlib='+matplotlib.__version__); print('trimesh='+trimesh.__version__)"` exited 0. Reused the scripts' existing dependency set in an isolated environment: Matplotlib 3.11.2, trimesh 5.1.1. No project dependency was added.
+- 2026-10-22: Export job `dial-stl-export`, PID 43556: `"C:/Program Files/OpenSCAD/openscad.com" -o "C:/Users/Jeremy/AppData/Local/Temp/m5dial-clearance-5KZDgm/updated.stl" C:/dev/cli-controller/case/m5dial_shelf_case.scad` exited 0 in 77 seconds; output `Simple: yes`. Saved the verified result as binary STL, matching the existing artifact format.
+- 2026-10-22: NumPy/trimesh assertions passed on the final binary STL: 10,972 triangles; `watertight=true`, consistent face winding; nominal bounds 86 x 50.8 x 72 mm. Existing edge-round tessellation puts each extreme about 0.0086 mm inside the nominal envelope. Both old and new meshes contain one positive outer surface and four negative internal surfaces; that topology is preserved.
+- 2026-10-22: Compared mesh-plane sections at Z=1.5, 8, 22.5, 31.5, 40, 46, 50, 54: maximum old/new deviation 0.000174 mm. Compared original mount sections at Z=58, 59.5, 61 with new sections 10 mm higher: maximum deviation 0.000059 mm. Result: `PASS: height +10 mm; lower features unchanged; mounting geometry shifted +10 mm`.
+- 2026-10-22: Ran the seven-view renderer using the existing `render_stl_views.py m5dial_shelf_case` entry point with Matplotlib `Agg`. Ran all three `draw_*_case.py` entry points with `python -B -c "import matplotlib; matplotlib.use('Agg'); import runpy; runpy.run_path('case/draw_m5dial_case.py',run_name='__main__'); runpy.run_path('case/draw_vl53l4cd_case.py',run_name='__main__'); runpy.run_path('case/draw_pca9548_case.py',run_name='__main__')"`; job `mount-sheets-unlocked`, PID 7760, exited 0. The earlier sheet export encountered the old Photos preview's file lock; closing that specific preview resolved it before the single retry.
+- 2026-10-22: Visually checked all three sheets. M5Dial PNG: 2475 x 1575; VL53L4CD PNG: 2415 x 1600; PCA9548 PNG: 2613 x 1648. Moved the sensor sheet's overlapping note and included full label bounds in the other sheets. No other mount geometry changed. Native MATLAB source dimensions were updated; native MATLAB execution and physical printing were not performed.
+- 2026-10-22: Opened each final PNG through its Windows file association. `Get-Process Photos` reported `m5dial_shelf_case_drawing.png`, `pca9548_case_drawing.png`, and `vl53l4cd_case_drawing.png`. M5Dial was opened last.
+- 2026-10-22: `git diff --check` exited 0. `git -c credential.interactive=never -c core.askPass= push --dry-run origin main` exited 0 without an interactive prompt.

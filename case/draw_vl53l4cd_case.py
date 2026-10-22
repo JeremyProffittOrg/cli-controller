@@ -236,7 +236,7 @@ def draw_top(ax):
     ax.text(0, DEPTH + 1.4, "OPEN BACK", ha="center", fontsize=8)
     ax.text(
         0,
-        CUT_Y0 - 1.6,
+        DEPTH + 4.5,
         "3 mm cutout on the base (z=0), flare out r=1.5",
         ha="center",
         fontsize=8,
@@ -543,7 +543,7 @@ def main():
     draw_iso(ax_iso)
     draw_notes(ax_notes)
     png = OUT / "vl53l4cd_case_drawing.png"
-    fig.savefig(png, dpi=150)
+    fig.savefig(png, dpi=150, bbox_inches="tight", pad_inches=0.15)
     print(f"wrote {png}")
     return png
 

@@ -3,7 +3,7 @@
 % Produces a 4-view mechanical drawing plus an isometric.
 
 function m5dial_shelf_case
-    wall = 3; top_t = 5; depth = 2*25.4; usb_clear = 0;
+    wall = 3; top_t = 5; depth = 2*25.4; top_extra = 10;
     dial_bezel_d = 51; dial_hole_d = 45.2;
     screw_d = 4.5; access_d = 13; cable_d = 8;
     ped_t = 3; ped_hole_d = 8.2; ped_splay = 15;
@@ -11,9 +11,9 @@ function m5dial_shelf_case
     bottom_clear = 3; width = 86; screw_x = 33; screw_y = 18;
     bezel_r = dial_bezel_d/2;
     center_z = wall + bottom_clear + bezel_r;
-    inner_top = center_z + bezel_r + usb_clear;
+    inner_top = center_z + bezel_r + top_extra;
     height = inner_top + top_t;
-    cable_z = inner_top - 3 - cable_d/2;
+    cable_z = center_z + bezel_r - 3 - cable_d/2;
 
     fig = figure('Color','w','Name','M5Stack Dial shelf case','Position',[80 60 1400 900]);
     tiledlayout(fig,2,3,'Padding','compact','TileSpacing','compact');
@@ -24,7 +24,7 @@ function m5dial_shelf_case
     nexttile; draw_top(width,depth,ped_t,screw_x,screw_y,screw_d,dial_bezel_d,dial_hole_d,ped_w,ped_span,ped_hole_d,ped_splay);
     title('Top'); xlabel('X mm'); ylabel('Y mm'); axis equal tight; grid on; box on;
 
-    nexttile; draw_right(depth,height,ped_t,center_z,dial_hole_d,wall,top_t,usb_clear,bezel_r,cable_z,cable_d,screw_y,screw_d,ped_h);
+    nexttile; draw_right(depth,height,ped_t,center_z,dial_hole_d,wall,top_t,top_extra,bezel_r,cable_z,cable_d,screw_y,screw_d,ped_h);
     title('Right'); xlabel('Y mm'); ylabel('Z mm'); axis equal tight; grid on; box on;
 
     nexttile; draw_back(width,height,center_z,cable_z,cable_d,ped_w,ped_h,ped_span,ped_hole_d,ped_splay,wall,top_t,screw_x,screw_d);
@@ -62,6 +62,7 @@ function draw_front(width,height,cz,hole_d,bezel_d,sx,sd,wall,top_t)
     dimh(0, -width/2, width/2, height+8, sprintf('%.1f', width));
     dimv(-width/2-8, 0, height, sprintf('%.1f', height));
     dimv(width/2+6, cz-hole_d/2, cz+hole_d/2, sprintf('\\oslash%.1f', hole_d));
+    dimv(width/2+6, cz+hole_d/2, height, sprintf('%.1f to top', height-cz-hole_d/2));
     text(sx, height+4, '3 mm screws', 'HorizontalAlignment','center', 'FontSize',8, 'Color','b');
     hold off;
 end
@@ -88,7 +89,7 @@ function draw_top(width,depth,ped_t,sx,sy,sd,bezel_d,hole_d,ped_w,span,phd,splay
     hold off;
 end
 
-function draw_right(depth,height,ped_t,cz,hole_d,wall,top_t,usb,bezel_r,cable_z,cable_d,sy,sd,ped_h)
+function draw_right(depth,height,ped_t,cz,hole_d,wall,top_t,top_extra,bezel_r,cable_z,cable_d,sy,sd,ped_h)
     hold on;
     rectangle('Position',[0 0 depth height],'EdgeColor','k','LineWidth',1.4);
     rectangle('Position',[depth cz-ped_h/2 ped_t ped_h],'EdgeColor',[0.1 0.5 0.2],'LineWidth',1.2);
@@ -96,16 +97,16 @@ function draw_right(depth,height,ped_t,cz,hole_d,wall,top_t,usb,bezel_r,cable_z,
     % dial hole on front wall
     plot([0 wall],[cz-hole_d/2 cz-hole_d/2],'Color',[0.85 0.33 0.1],'LineWidth',1.4);
     plot([0 wall],[cz+hole_d/2 cz+hole_d/2],'Color',[0.85 0.33 0.1],'LineWidth',1.4);
-    % USB clearance band
+    % Added clearance above the Dial
     y1 = cz + bezel_r; y2 = height-top_t;
     patch([wall depth-wall depth-wall wall],[y1 y1 y2 y2],[1 0.9 0.7],'EdgeColor','none','FaceAlpha',0.35);
     plot([depth-wall depth],[cable_z cable_z],'k','LineWidth',1.2);
     viscircles([depth cable_z], cable_d/2, 'Color','k', 'LineWidth',1.0);
     plot([sy sy],[height-top_t height],'b','LineWidth',1.2);
-    dimv(-8, y1, y2, sprintf('%g USB', usb));
+    dimv(-8, y1, y2, sprintf('%g added', top_extra));
     dimv(depth+ped_t+8, 0, height, sprintf('%.1f', height));
     dimh(height+8, 0, depth, sprintf('%.1f', depth));
-    text(depth/2, (y1+y2)/2, '15 mm USB', 'HorizontalAlignment','center', 'FontSize',8);
+    text(depth/2, (y1+y2)/2, sprintf('+%g mm above Dial', top_extra), 'HorizontalAlignment','center', 'FontSize',8);
     hold off;
 end
 

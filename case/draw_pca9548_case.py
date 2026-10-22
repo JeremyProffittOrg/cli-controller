@@ -427,7 +427,7 @@ def main():
              "Isometric   tall variant, board in place")
     draw_notes(fig.add_subplot(gs[1, 2]))
     png = OUT / "pca9548_case_drawing.png"
-    fig.savefig(png, dpi=150)
+    fig.savefig(png, dpi=150, bbox_inches="tight", pad_inches=0.15)
     print("wrote %s" % png)
     return png
 

@@ -8,6 +8,7 @@ $fn = 64;
 // --- parameters (all mm) ---
 wall          = 3.0;
 top_t         = 5.0;
+top_extra     = 10.0;        // added above the Dial; lower features stay together
 depth         = 2 * 25.4;     // 50.8 mm, 2.00 in
 dial_bezel_d  = 51.0;
 dial_hole_d   = 45.2;
@@ -41,12 +42,12 @@ eps           = 0.2;
 
 bezel_r   = dial_bezel_d / 2;
 center_z  = wall + bottom_clear + bezel_r;
-inner_top = center_z + bezel_r;
+inner_top = center_z + bezel_r + top_extra;
 height    = inner_top + top_t;
 inner_w   = width - 2 * wall;
 inner_d   = depth - 2 * wall;
 inner_h   = inner_top - wall;
-cable_z   = inner_top - 3.0 - cable_slot_h / 2;
+cable_z   = center_z + bezel_r - 3.0 - cable_slot_h / 2;
 hw        = width / 2;
 c2s       = bottom_chamfer2 / sqrt(2);
 top_open_w    = 0.5 * width;  // 50 % of width, centered

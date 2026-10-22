@@ -10,7 +10,9 @@ This enclosure mounts an M5Stack Dial under a shelf. It exposes the round Dial f
 
 | Feature | Dimension |
 |---|---:|
-| Overall envelope | 86.0 × 50.8 × 62.0 mm |
+| Overall envelope | 86.0 × 50.8 × 72.0 mm |
+| Added clearance above the Dial | 10.0 mm |
+| Nominal Dial-hole top to shelf mounting face | 17.9 mm, before print allowance |
 | Wall thickness | 3.0 mm |
 | Top thickness | 5.0 mm |
 | Dial bezel reference | 51.0 mm diameter |
@@ -22,6 +24,8 @@ This enclosure mounts an M5Stack Dial under a shelf. It exposes the round Dial f
 | Top hatch | 50% of case width × 80% of case depth |
 
 The exact parameters and derived values are defined at the top of [`m5dial_shelf_case.scad`](m5dial_shelf_case.scad).
+
+The additional 10 mm moves the Dial opening, rear cable slot, LED holes, and bottom profile down together relative to the shelf. The mounting footprint and 5 mm top remain unchanged. The model keeps its bottom at Z=0, so its top moves from Z=62 to Z=72.
 
 ## MATLAB mechanical drawing
 

@@ -14,6 +14,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 # --- same numbers as the SCAD ---
 WALL = 3.0
 TOP_T = 5.0
+TOP_EXTRA = 10.0  # added above the Dial; lower features stay together
 DEPTH = 2 * 25.4
 DIAL_BEZEL_D = 51.0
 DIAL_HOLE_D = 45.2
@@ -42,9 +43,9 @@ BOTTOM_CHAMFER = 30.0
 BOTTOM_CHAMFER2 = 10.0
 BEZEL_R = DIAL_BEZEL_D / 2
 CENTER_Z = WALL + BOTTOM_CLEAR + BEZEL_R
-INNER_TOP = CENTER_Z + BEZEL_R
+INNER_TOP = CENTER_Z + BEZEL_R + TOP_EXTRA
 HEIGHT = INNER_TOP + TOP_T
-CABLE_Z = INNER_TOP - 3.0 - CABLE_SLOT_H / 2
+CABLE_Z = CENTER_Z + BEZEL_R - 3.0 - CABLE_SLOT_H / 2
 HW = WIDTH / 2
 C2S = BOTTOM_CHAMFER2 / np.sqrt(2)
 TOP_OPEN_W = 0.5 * WIDTH
@@ -176,6 +177,11 @@ def draw_front(ax):
     _dim_h(ax, -WIDTH / 2, WIDTH / 2, HEIGHT + 10, f"{WIDTH:.0f}")
     _dim_v(ax, -WIDTH / 2 - 10, 0, HEIGHT, f"{HEIGHT:.0f}", side=-1)
     _dim_v(ax, WIDTH / 2 + 8, CENTER_Z - DIAL_HOLE_D / 2, CENTER_Z + DIAL_HOLE_D / 2, "45.2")
+    hole_top = CENTER_Z + DIAL_HOLE_D / 2
+    ax.plot([0, WIDTH / 2 + 8], [hole_top, hole_top], color=MATLAB_ORANGE, lw=0.7, ls=":")
+    _dim_v(ax, WIDTH / 2 + 8, hole_top, HEIGHT, f"{HEIGHT - hole_top:.1f} to top")
+    ax.text(0, INNER_TOP - TOP_EXTRA / 2, f"+{TOP_EXTRA:.0f} mm above Dial", ha="center",
+            va="center", fontsize=8, color=MATLAB_PURPLE)
     _dim_h(ax, -HW, -HW + BOTTOM_CHAMFER, -6, f"{BOTTOM_CHAMFER:.0f} + {BOTTOM_CHAMFER2:.0f} chamfer", side=-1)
     ax.set_title("Front  (X-Z)")
     ax.set_xlabel("X")
@@ -189,7 +195,7 @@ def draw_top(ax):
     _rect(ax, (-WIDTH / 2, 0), WIDTH, DEPTH, ec="k", lw=1.4)
     y0 = (DEPTH - TOP_OPEN_D) / 2
     _rect(ax, (-TOP_OPEN_W / 2, y0), TOP_OPEN_W, TOP_OPEN_D, ec=MATLAB_ORANGE, lw=1.4, ls="--")
-    ax.text(0, DEPTH / 2, "top hatch\n50% W x 80% D", ha="center", va="center", fontsize=8, color=MATLAB_ORANGE)
+    ax.text(0, DEPTH / 2 + 9, "top hatch\n50% W x 80% D", ha="center", va="center", fontsize=8, color=MATLAB_ORANGE)
     ax.plot([-DIAL_HOLE_D / 2, DIAL_HOLE_D / 2], [0, 0], color=MATLAB_ORANGE, lw=2.4)
     ax.plot([-DIAL_BEZEL_D / 2, DIAL_BEZEL_D / 2], [-0.8, -0.8], color=MATLAB_ORANGE, lw=1.0, ls="--")
     for s in (-1, 1):
@@ -419,7 +425,7 @@ def main():
     fig.suptitle(
         "M5Stack Dial under-shelf case   "
         f"{WIDTH:.0f} x {DEPTH:.1f} x {HEIGHT:.0f} mm    "
-        "walls 3 mm   top 5 mm   50x80% hatch   LED holes flush, +/-15 / 30 down",
+        f"+{TOP_EXTRA:.0f} mm above Dial    walls 3 mm   top 5 mm   50x80% hatch",
         fontsize=13,
         fontweight="medium",
         y=0.98,
